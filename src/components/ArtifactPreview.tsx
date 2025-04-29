@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { type Artifact } from '@/lib/db';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, FileDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { exportArtifactToPDF } from '@/lib/export';
 // Removed Card import as it's not used here
 
 // Define a constant for the project generator language type
@@ -105,7 +107,7 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
         // Allow potentially unsafe HTML, but sandboxed
         return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body>${artifact.code}</body></html>`;
       case 'css':
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} ${artifact.code}</style></head><body><h1>CSS Preview</h1><p>This is a paragraph with <a href="#">a link</a>.</p><button>Button</button><div class="box" style="border:1px solid #ccc; padding: 10px; margin-top: 10px;">A div with class "box"</div></body></html>`;
+        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} ${artifact.code}</style></head><body><h1>CSS Preview</h1><p>This is a paragraph with <a href="#">a link</a>.</p><button>Button</button><div class="box" style="border:1px solid #ccc; padding: 10px; margin-top: 10px;">A div with class "box"</div><a href="https://github.com/your-repo" style="position: fixed; bottom: 10px; right: 10px; background: #000; color: #fff; padding: 5px 10px; text-decoration: none; border-radius: 5px;">Fork me on GitHub</a></body></html>`;
       case 'javascript':
         // Allow JS execution, sandboxed
         return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body><h3>JavaScript Output:</h3><div id="output" style="border:1px solid #ddd; padding:1rem; min-height: 50px; margin-top:1rem; white-space: pre-wrap;"></div><script>
@@ -209,7 +211,18 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
 
 
   return (
-    <div className="h-full flex flex-col relative bg-gray-100"> {/* Added background */}
+    <div className="h-full flex flex-col relative bg-gray-100">
+      <div className="absolute top-2 right-2 z-10">
+        <Button
+          variant="outline"
+          size="sm"
+          className="bg-white"
+          onClick={() => exportArtifactToPDF(artifact)}
+        >
+          <FileDown className="h-4 w-4 mr-1" />
+          Export PDF
+        </Button>
+      </div>
       {error && (
         <div className="absolute top-2 left-2 right-2 bg-destructive/10 text-destructive p-2 rounded-md text-xs flex items-center gap-1 z-10 border border-destructive/30">
           <AlertCircle className="h-3 w-3 flex-shrink-0" />

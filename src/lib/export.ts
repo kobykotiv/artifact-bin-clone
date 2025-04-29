@@ -1,5 +1,66 @@
 import JSZip from 'jszip';
-import { Artifact, getAllArtifacts, saveArtifact } from './db';
+import { type Artifact, getAllArtifacts, saveArtifact } from './db';
+import pdfMake from 'pdfmake/build/pdfmake';
+import { type TDocumentDefinitions } from 'pdfmake/interfaces';
+
+// We need to load the default fonts
+pdfMake.fonts = {
+  Roboto: {
+    normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf',
+    bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf',
+    italics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Italic.ttf',
+    bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-MediumItalic.ttf'
+  }
+};
+
+/**
+ * Exports an artifact to a PDF file
+ */
+export const exportArtifactToPDF = async (artifact: Artifact): Promise<void> => {
+  try {
+    const docDefinition: TDocumentDefinitions = {
+      content: [
+        { text: artifact.title || 'Untitled Artifact', style: 'header' },
+        { text: `Created: ${new Date(artifact.createdAt).toLocaleString()}`, style: 'meta' },
+        { text: `Updated: ${new Date(artifact.updatedAt).toLocaleString()}`, style: 'meta' },
+        { text: `Language: ${artifact.language}`, style: 'meta', margin: [0, 0, 0, 20] },
+        { text: 'Code:', style: 'subheader' },
+        { text: artifact.code, style: 'code' }
+      ],
+      styles: {
+        header: {
+          fontSize: 24,
+          bold: true,
+          margin: [0, 0, 0, 10]
+        },
+        subheader: {
+          fontSize: 16,
+          bold: true,
+          margin: [0, 10, 0, 5]
+        },
+        meta: {
+          fontSize: 12,
+          color: '#666'
+        },
+        code: {
+          font: 'Roboto',
+          fontSize: 12,
+          margin: [0, 5, 0, 15],
+          preserveLeadingSpaces: true
+        }
+      },
+      defaultStyle: {
+        font: 'Roboto'
+      }
+    };
+
+    const pdfDoc = pdfMake.createPdf(docDefinition);
+    pdfDoc.download(`${artifact.title || 'artifact'}-${artifact.id.slice(0, 8)}.pdf`);
+  } catch (error) {
+    console.error('PDF Export failed:', error);
+    throw error;
+  }
+};
 
 /**
  * Exports all artifacts to a zip file and triggers download
