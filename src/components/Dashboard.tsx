@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Added useCallback
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { authService, type AuthState } from '@/lib/services/auth';
 import { dbService, type ArtifactData, type UserData } from '@/lib/services/db';
 import { UserProfile } from '@/components/UserProfile';
@@ -7,18 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Plus } from 'lucide-react';
+import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout } from 'lucide-react';
 import { ArtifactViewer } from '@/components/ArtifactViewer';
 import { ArtifactEditor } from '@/components/ArtifactEditor';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileUploadDialog } from '@/components/FileUploadDialog';
 import { getLanguageFromFileType, getFileTypeFromLanguage, supportedLanguages } from '@/lib/utils/fileTypes';
-import ProjectGenerator from '@/components/ProjectGenerator'; // Import ProjectGenerator
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"; // Import Dropdown components
-
-// Define the special language identifier
-const PROJECT_SPEC_LANG = 'project-spec';
+import ProjectGenerator from '@/components/ProjectGenerator'; 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SprintPlanner } from '@/components/SprintPlanner';
+import { DataPortability } from '@/components/DataPortability';
+import { StatsCard } from '@/components/Dashboard/StatsCard';
 
 export function Dashboard() {
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState());
@@ -29,7 +30,9 @@ export function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLanguage, setFilterLanguage] = useState<string>('all');
-
+  const [activeTab, setActiveTab] = useState<string>("artifacts");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  
   // --- Data Fetching ---
   const fetchUserArtifacts = useCallback(async (userId: string) => {
     try {
@@ -53,6 +56,30 @@ export function Dashboard() {
     }
     return unsubscribe;
   }, [authState.isAuthenticated, authState.user?.id, fetchUserArtifacts]);
+
+  // --- Dashboard Statistics ---
+  const dashboardStats = useMemo(() => {
+    const languageCounts: Record<string, number> = {};
+    let totalArtifactsSize = 0;
+    
+    userArtifacts.forEach(artifact => {
+      // Count languages
+      const lang = artifact.language || 'unknown';
+      languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+      
+      // Calculate total size (approximation)
+      totalArtifactsSize += (artifact.content?.length || 0);
+    });
+    
+    return {
+      totalArtifacts: userArtifacts.length,
+      languageDistribution: languageCounts,
+      totalSize: Math.round(totalArtifactsSize / 1024), // KB
+      recentActivity: userArtifacts
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 5)
+    };
+  }, [userArtifacts]);
 
   // --- Artifact Selection Logic ---
   useEffect(() => {
@@ -240,29 +267,72 @@ export function Dashboard() {
     }
   }, [authState.user, fetchUserArtifacts]);
 
+  // Function to create a specific planning artifact if needed
+  const createPlanningArtifact = useCallback((planType: string) => {
+    if (!authState.user) return null;
+    
+    const newArtifact: ArtifactData = {
+      id: crypto.randomUUID(),
+      userId: authState.user.id,
+      title: `${planType} Plan`,
+      language: 'project-spec',
+      content: JSON.stringify({
+        id: crypto.randomUUID(),
+        name: `${planType} Plan`,
+        type: planType.toLowerCase(),
+        // Add specific fields based on plan type
+        createdAt: new Date().toISOString(),
+        tasks: [],
+        notes: '',
+      }, null, 2),
+      fileType: 'json',
+      tags: ['plan', planType.toLowerCase()],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      avatarSeed: crypto.randomUUID()
+    };
+    
+    return newArtifact;
+  }, [authState.user]);
+
   // --- Render Logic ---
   if (loading) {
-    // ... loading spinner ...
     return (
-        <div className="flex items-center justify-center h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2">Loading Dashboard...</span>
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading your dashboard...</p>
         </div>
-      );
+      </div>
+    );
   }
+  
   if (!authState.isAuthenticated || !authState.user) {
-    // ... login prompt ...
-    return <div>Please log in to view the dashboard.</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center gap-4 p-6 max-w-md text-center">
+          <div className="p-4 rounded-full bg-muted">
+            <Loader2 className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h2 className="text-2xl font-bold">Authentication Required</h2>
+          <p className="text-muted-foreground">Please log in or continue as guest to access your dashboard.</p>
+          <Button onClick={() => authService.loginAsGuest()}>Continue as Guest</Button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 h-screen flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex justify-between items-center flex-shrink-0">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="flex gap-2">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 min-h-screen flex flex-col gap-4">
+      {/* Header with responsive design */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Welcome back, {authState.user.username || "Guest"}</p>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <DataPortability onImportComplete={() => fetchUserArtifacts(authState.user.id)} />
           <FileUploadDialog onUpload={handleUpload} />
-          {/* Replace single New Artifact button with Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button>
@@ -279,48 +349,68 @@ export function Dashboard() {
               <DropdownMenuItem onClick={() => handleCreateNew('project')}>
                 Project Specification
               </DropdownMenuItem>
-              {/* Add Tech Stack Generator option later */}
-              {/* <DropdownMenuItem onClick={() => handleCreateNew('tech-stack')}>
-                Tech Stack Pseudocode
-              </DropdownMenuItem> */}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex gap-2 flex-shrink-0">
+      {/* Search and Filter - Responsive design */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <div className="relative flex-grow">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Search artifacts..."
+            placeholder="Search artifacts by name, tag, or content..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
         </div>
-        <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-          <SelectTrigger className="w-auto min-w-[160px]">
-            <SelectValue placeholder="Filter language" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Languages</SelectItem>
-            {supportedLanguages.map(lang => (
-              <SelectItem key={lang.value} value={lang.value}>
-                {lang.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+            <SelectTrigger className="w-auto min-w-[160px]">
+              <SelectValue placeholder="Filter language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Languages</SelectItem>
+              {supportedLanguages.map(lang => (
+                <SelectItem key={lang.value} value={lang.value}>
+                  {lang.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex rounded-md border">
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="icon" 
+              className="rounded-none rounded-l-md"
+              onClick={() => setViewMode('list')}
+            >
+              <ListTodo className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="icon" 
+              className="rounded-none rounded-r-md"
+              onClick={() => setViewMode('grid')}
+            >
+              <Layout className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-grow overflow-hidden">
+      {/* Statistics Overview */}
+      {userArtifacts.length > 0 && (
+        <StatsCard userArtifacts={userArtifacts} />
+      )}
+
+      {/* Main Content Grid with improved responsive design */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 flex-grow overflow-hidden">
         {/* Left Column */}
         <div className="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
           {/* User Profile */}
           <Card className="flex-shrink-0">
-            {/* ... UserProfile card content ... */}
             <CardHeader>
               <CardTitle>{authState.isGuest ? 'Guest Profile' : 'User Profile'}</CardTitle>
             </CardHeader>
@@ -333,64 +423,163 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Artifact List */}
+          {/* Artifact List with improved styling */}
           <Card className="flex-grow flex flex-col overflow-hidden">
-            <CardHeader>
-              <CardTitle>My Artifacts ({filteredArtifacts.length})</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex justify-between">
+                <span>My Artifacts ({filteredArtifacts.length})</span>
+                {filteredArtifacts.length > 0 && searchQuery && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {filteredArtifacts.length} results
+                  </span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex-grow overflow-hidden p-0">
-              <ScrollArea className="h-full">
-                 <div className="p-1 md:p-2"> {/* Adjust padding */}
-                    <ArtifactList
-                      artifacts={filteredArtifacts}
-                      selectedId={selectedArtifactId}
-                      onSelect={handleSelectArtifact}
-                    />
-                 </div>
+              <ScrollArea className="h-[calc(100vh-20rem)]">
+                <div className="p-1 md:p-2">
+                  <ArtifactList
+                    artifacts={filteredArtifacts}
+                    selectedId={selectedArtifactId}
+                    onSelect={handleSelectArtifact}
+                    displayMode={viewMode}
+                  />
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column: Viewer/Editor/Generator */}
-        <div className="lg:col-span-2 flex flex-col overflow-hidden">
-          {/* Use a single Card container */}
+        {/* Right Column: Tabs for Different Forms */}
+        <div className="lg:col-span-2 xl:col-span-3 flex flex-col overflow-hidden">
           <Card className="flex-grow flex flex-col overflow-hidden">
-            {currentArtifact ? (
-              // Check artifact type/language to determine which component to render
-              currentArtifact.language === 'project-spec' ? (
+            <Tabs defaultValue="artifacts" className="flex flex-col flex-grow overflow-hidden" onValueChange={setActiveTab}>
+              <TabsList className="px-6 pt-2 mb-0 border-b overflow-x-auto flex-nowrap w-full justify-start">
+                <TabsTrigger value="artifacts"><ListTodo className="w-4 h-4 mr-2" />Artifacts</TabsTrigger>
+                <TabsTrigger value="project"><Lightbulb className="w-4 h-4 mr-2" />Project Idea</TabsTrigger>
+                <TabsTrigger value="marketing"><Briefcase className="w-4 h-4 mr-2" />Marketing</TabsTrigger>
+                <TabsTrigger value="funding"><Briefcase className="w-4 h-4 mr-2" />Funding</TabsTrigger>
+                <TabsTrigger value="sprint"><ListTodo className="w-4 h-4 mr-2" />Sprint</TabsTrigger>
+                <TabsTrigger value="network"><Network className="w-4 h-4 mr-2" />Network</TabsTrigger>
+              </TabsList>
+              
+              {/* Artifacts Tab - Original viewer/editor functionality */}
+              <TabsContent value="artifacts" className="flex-grow overflow-hidden flex flex-col">
+                {currentArtifact ? (
+                  // Check artifact type/language to determine which component to render
+                  currentArtifact.language === 'project-spec' ? (
+                    <ProjectGenerator
+                      key={currentArtifact.id}
+                      artifact={currentArtifact}
+                      onSave={handleSaveArtifact}
+                      onFork={handleForkArtifact}
+                    />
+                  ) : isEditing ? (
+                    <ArtifactEditor
+                      key={currentArtifact.id}
+                      artifact={currentArtifact}
+                      onSave={handleSaveArtifact}
+                      onCancel={() => setIsEditing(false)}
+                    />
+                  ) : (
+                    <ArtifactViewer
+                      key={currentArtifact.id}
+                      artifact={currentArtifact}
+                      onEdit={() => setIsEditing(true)}
+                    />
+                  )
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground p-6">
+                    <div className="text-center max-w-md">
+                      <div className="mb-4">
+                        <ListTodo className="h-12 w-12 mx-auto text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-2">No Artifact Selected</h3>
+                      <p>
+                        {userArtifacts.length > 0
+                          ? "Select an artifact from the list to view or edit."
+                          : "No artifacts found. Create one or upload a file."}
+                      </p>
+                      <Button 
+                        className="mt-4" 
+                        onClick={() => handleCreateNew('code')}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create New Artifact
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+              
+              {/* Project Idea Tab */}
+              <TabsContent value="project" className="flex-grow overflow-hidden">
                 <ProjectGenerator
-                  key={currentArtifact.id} // Ensure re-mount on artifact change
-                  artifact={currentArtifact}
-                  onSave={handleSaveArtifact} // Use the existing save handler
-                  onFork={handleForkArtifact} // Use the new fork handler
-                />
-              ) : isEditing ? (
-                // Standard Code Editor
-                <ArtifactEditor
-                  key={currentArtifact.id}
-                  artifact={currentArtifact}
+                  artifact={createPlanningArtifact('Project') || {
+                    id: 'temp-project',
+                    title: 'New Project Idea',
+                    content: JSON.stringify({ name: 'New Project Idea', description: '', features: [] }, null, 2)
+                  }}
                   onSave={handleSaveArtifact}
-                  onCancel={() => setIsEditing(false)}
+                  onFork={handleForkArtifact}
+                  isTemplate
                 />
-              ) : (
-                // Standard Code Viewer
-                <ArtifactViewer
-                  key={currentArtifact.id}
-                  artifact={currentArtifact}
-                  onEdit={() => setIsEditing(true)}
+              </TabsContent>
+              
+              {/* Other tabs remain the same */}
+              <TabsContent value="marketing" className="flex-grow overflow-hidden">
+                <ProjectGenerator
+                  artifact={createPlanningArtifact('Marketing') || {
+                    id: 'temp-marketing',
+                    title: 'Marketing Plan',
+                    content: JSON.stringify({ name: 'Marketing Plan', targetAudience: '', strategies: [] }, null, 2)
+                  }}
+                  onSave={handleSaveArtifact}
+                  onFork={handleForkArtifact}
+                  isTemplate
                 />
-              )
-            ) : (
-              // Placeholder when no artifact is selected
-              <div className="flex items-center justify-center h-full text-muted-foreground p-6">
-                <p>
-                  {userArtifacts.length > 0
-                    ? "Select an artifact from the list to view or edit."
-                    : "No artifacts found. Create one or upload a file."}
-                </p>
-              </div>
-            )}
+              </TabsContent>
+              
+              {/* Funding Plan Tab */}
+              <TabsContent value="funding" className="flex-grow overflow-hidden">
+                <ProjectGenerator
+                  artifact={createPlanningArtifact('Funding') || {
+                    id: 'temp-funding',
+                    title: 'Funding Plan',
+                    content: JSON.stringify({ name: 'Funding Plan', budget: '', sources: [] }, null, 2)
+                  }}
+                  onSave={handleSaveArtifact}
+                  onFork={handleForkArtifact}
+                  isTemplate
+                />
+              </TabsContent>
+              
+              {/* Sprint Planner Tab */}
+              <TabsContent value="sprint" className="flex-grow overflow-hidden">
+                <SprintPlanner
+                  artifact={createPlanningArtifact('Sprint') || {
+                    id: 'temp-sprint',
+                    title: 'Sprint Plan',
+                    content: JSON.stringify({ projectName: '', sprints: [] }, null, 2)
+                  }}
+                  onSave={handleSaveArtifact}
+                />
+              </TabsContent>
+              
+              {/* Network Graph Tab */}
+              <TabsContent value="network" className="flex-grow overflow-hidden p-6">
+                <div className="h-full flex items-center justify-center flex-col gap-4 text-center">
+                  <Network className="h-16 w-16 text-muted-foreground" />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Git Network Visualization</h3>
+                    <p className="text-muted-foreground max-w-md">
+                      View connections between forked artifacts and collaborators in a network graph.
+                      This feature is coming soon.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
       </div>
