@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { type Artifact } from '@/lib/db';
+// Use ArtifactData type from db service for consistency
+import { type ArtifactData } from '@/lib/services/db';
 import { AlertCircle, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { exportArtifactToPDF } from '@/lib/export';
-// Removed Card import as it's not used here
+import { exportArtifactToPDF } from '@/lib/export'; // Assuming this utility exists and works with ArtifactData
 
 // Define a constant for the project generator language type
-const PROJECT_GENERATOR_LANG = 'project-generator';
+const PROJECT_SPEC_LANG = 'project-spec'; // Updated identifier
 
 interface ArtifactPreviewProps {
-  artifact: Artifact;
+  artifact: ArtifactData; // Use ArtifactData type
   isVisible: boolean;
 }
 
@@ -46,13 +46,14 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
     };
   }, [artifact, isVisible]); // Re-run effect if artifact or visibility changes
 
-  const generatePreviewHTML = (artifact: Artifact): string => {
+  const generatePreviewHTML = (artifact: ArtifactData): string => { // Use ArtifactData type
     const baseStyle = `body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 1rem; line-height: 1.6; color: #333; background-color: #f9f9f9; } h1, h2, h3 { margin-top: 1.5em; margin-bottom: 0.5em; } h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } h3 { font-size: 1.2em; } code { background: #e1e1e1; padding: 0.2em 0.4em; border-radius: 3px; font-family: monospace; } pre { background: #e8e8e8; padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid #ddd; } p { margin-bottom: 1em; } strong { font-weight: 600; } em { font-style: italic; } ul, ol { margin-left: 1.5em; margin-bottom: 1em; } li { margin-bottom: 0.5em; } blockquote { border-left: 3px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic; color: #555; }`;
     // More permissive CSP for previewing various content, adjust as needed for security
     const csp = `default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; img-src data: https:; script-src 'unsafe-inline' https://unpkg.com; font-src data: https:; connect-src https:; frame-src 'self';`; // Added frame-src 'self' for potential nested previews if needed
 
-    // Define interface for project generator data
+    // Define interface for project generator data (can be kept internal or moved to a shared types file)
     interface ProjectData {
+        id?: string; // Add id if it's part of the spec
         name?: string;
         description?: string;
         features?: string[];
@@ -63,21 +64,29 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
         applicationType?: string;
         dataModel?: string;
         userRole?: string;
+        // Add other fields from ProjectGenerator's state if needed for preview
+        contributors?: string[];
+        forks?: number;
+        stars?: number;
     }
-    
+
     // Handle Project Generator type specifically
-    if (artifact.language === PROJECT_GENERATOR_LANG) {
+    if (artifact.language === PROJECT_SPEC_LANG) { // Updated check
         let projectData: ProjectData = { name: artifact.title, description: 'Could not parse project data.' };
         try {
-            projectData = JSON.parse(artifact.code || '{}') as ProjectData;
+            // Use artifact.content which holds the JSON string
+            projectData = JSON.parse(artifact.content || '{}') as ProjectData;
         } catch (e) {
              console.error("Error parsing project data for preview:", e);
         }
         const featuresList = Array.isArray(projectData.features) ? projectData.features.map(f => `<li>${escapeHtml(f)}</li>`).join('') : '<li>None</li>';
         const pseudocodePreview = projectData.pseudocode ? `<pre><code>${escapeHtml(projectData.pseudocode)}</code></pre>` : '<p><em>No pseudocode generated yet.</em></p>';
 
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style><title>Project: ${escapeHtml(projectData.name || artifact.title)}</title></head><body>
-            <h1>Project Idea: ${escapeHtml(projectData.name || artifact.title)}</h1>
+        // Use projectData.name if available, fallback to artifact.title
+        const projectName = projectData.name || artifact.title || 'Untitled Project';
+
+        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style><title>Project: ${escapeHtml(projectName)}</title></head><body>
+            <h1>Project Idea: ${escapeHtml(projectName)}</h1>
             ${projectData.description ? `<p><strong>Description:</strong> ${escapeHtml(projectData.description)}</p>` : ''}
             ${projectData.problem ? `<h2>Problem Statement</h2><p>${escapeHtml(projectData.problem)}</p>` : ''}
             ${projectData.customers ? `<h2>Target Customers</h2><p>${escapeHtml(projectData.customers)}</p>` : ''}
@@ -96,20 +105,22 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
             </body></html>`;
     }
 
-
+    // Handle other languages
     if (!artifact.language) {
       // Plaintext preview if no language selected
-      return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} code {white-space: pre; font-family: monospace;}</style></head><body><pre><code>${escapeHtml(artifact.code)}</code></pre></body></html>`;
+      // Use artifact.content
+      return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} code {white-space: pre; font-family: monospace;}</style></head><body><pre><code>${escapeHtml(artifact.content)}</code></pre></body></html>`;
     }
 
     switch (artifact.language) {
       case 'html':
-        // Allow potentially unsafe HTML, but sandboxed
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body>${artifact.code}</body></html>`;
+        // Use artifact.content
+        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body>${artifact.content}</body></html>`;
       case 'css':
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} ${artifact.code}</style></head><body><h1>CSS Preview</h1><p>This is a paragraph with <a href="#">a link</a>.</p><button>Button</button><div class="box" style="border:1px solid #ccc; padding: 10px; margin-top: 10px;">A div with class "box"</div><a href="https://github.com/your-repo" style="position: fixed; bottom: 10px; right: 10px; background: #000; color: #fff; padding: 5px 10px; text-decoration: none; border-radius: 5px;">Fork me on GitHub</a></body></html>`;
+        // Use artifact.content
+        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} ${artifact.content}</style></head><body><h1>CSS Preview</h1><p>This is a paragraph with <a href="#">a link</a>.</p><button>Button</button><div class="box" style="border:1px solid #ccc; padding: 10px; margin-top: 10px;">A div with class "box"</div><a href="https://github.com/your-repo" style="position: fixed; bottom: 10px; right: 10px; background: #000; color: #fff; padding: 5px 10px; text-decoration: none; border-radius: 5px;">Fork me on GitHub</a></body></html>`;
       case 'javascript':
-        // Allow JS execution, sandboxed
+        // Use artifact.content
         return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body><h3>JavaScript Output:</h3><div id="output" style="border:1px solid #ddd; padding:1rem; min-height: 50px; margin-top:1rem; white-space: pre-wrap;"></div><script>
         // Capture console.log, console.error, console.warn
         const output = document.getElementById('output');
@@ -129,25 +140,25 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
           return true; // Prevent default browser error handling
         };
         try {
-          ${artifact.code};
+          ${artifact.content}; // Use artifact.content
         } catch (e) {
           console.error(e);
         }
         </script></body></html>`;
       case 'jsx':
       case 'tsx':
-        // Attempt to render React component
+        // Use artifact.content
+        // Note: This preview remains highly experimental and likely needs a build step
         return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body><div id="root">Loading React Component...</div><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script>
         try {
           // Basic Babel standalone setup (consider a more robust solution for complex JSX/TSX)
-          // This is a simplified approach and might not handle all syntax
-          const transformedCode = artifact.code; // Placeholder: Needs actual transformation (e.g., Babel standalone or server-side)
+          const transformedCode = artifact.content; // Use artifact.content (needs transformation)
 
           // Assuming the artifact code defines a component named 'App'
           // This part needs refinement based on how JSX/TSX is actually handled/transformed
           // For now, it might fail if the code isn't plain JS defining React elements
 
-          // Example: If artifact.code is like \`return <h1>Hello</h1>;\`
+          // Example: If artifact.content is like \`return <h1>Hello</h1>;\`
           function App() {
              // This eval is risky and limited. A proper build step or Babel standalone is better.
              // return eval(transformedCode); // Highly simplified and potentially insecure/broken
@@ -163,8 +174,8 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
         }
         </script></body></html>`;
       case 'markdown':
-        // Use a more robust Markdown conversion if possible, or stick to basic regex
-        const mdHtml = artifact.code
+        // Use artifact.content
+        const mdHtml = artifact.content
           .replace(/^# (.+)$/gm, '<h1>$1</h1>')
           .replace(/^## (.+)$/gm, '<h2>$1</h2>') // Corrected capture group
           .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -183,7 +194,8 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
         return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body>${mdHtml}</body></html>`;
       default:
         // Default to plaintext preview for unknown languages
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} code {white-space: pre; font-family: monospace;}</style></head><body><pre><code>${escapeHtml(artifact.code)}</code></pre></body></html>`;
+        // Use artifact.content
+        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} code {white-space: pre; font-family: monospace;}</style></head><body><pre><code>${escapeHtml(artifact.content)}</code></pre></body></html>`;
     }
   };
 

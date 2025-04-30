@@ -73,6 +73,13 @@
   --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
   --sidebar-border: hsl(240 3.7% 15.9%);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --prism-background: var(--background);
+  --prism-color: var(--foreground);
+  --prism-token-comment: hsl(var(--muted-foreground));
+  --prism-token-string: hsl(var(--success));
+  --prism-token-function: hsl(var(--primary));
+  --prism-token-keyword: hsl(var(--destructive));
+  --prism-token-variable: hsl(var(--warning));
 }
 
 @theme inline {
@@ -132,6 +139,20 @@
       height: 0;
     }
   }
+}
+
+/* Prism.js Dark Theme Customization */
+pre[class*="language-"] {
+  background: hsl(var(--background));
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+code[class*="language-"] {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 @layer base {

@@ -2,26 +2,51 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
 import { toast } from "sonner";
+// Keep existing artifact imports if the old view is still used for non-logged-in users
 import { type Artifact, deleteArtifact, getAllArtifacts, getArtifact, saveArtifact, getArtifactStats } from "@/lib/db";
 import { ArtifactList } from "@/components/ArtifactList";
 import { ArtifactEditor } from "@/components/ArtifactEditor";
 import { ArtifactPreview } from "@/components/ArtifactPreview";
 import { DataPortability } from "@/components/DataPortability";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import { Plus, Database, Lightbulb } from "lucide-react";
+import { Plus, Database, Lightbulb, LogIn } from "lucide-react";
 import ProjectGenerator from "@/components/ProjectGenerator"; // Import ProjectGenerator
+import { authService, type AuthState } from "@/lib/services/auth"; // Import auth service
+import { Dashboard } from "@/components/Dashboard"; // Import Dashboard
 
 // Define a constant for the project generator language type
 const PROJECT_GENERATOR_LANG = 'project-generator';
 
 export function App() {
+  // --- Existing State for Artifact Bin View ---
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentArtifact, setCurrentArtifact] = useState<Artifact | null>(null);
   const [isNewArtifact, setIsNewArtifact] = useState(false);
   const [stats, setStats] = useState({ count: 0, size: 0 });
   const [fullscreenArtifact, setFullscreenArtifact] = useState<Artifact | null>(null);
+  // --- End Existing State ---
 
+  // --- New Auth State ---
+  const [authState, setAuthState] = useState<AuthState>(authService.getAuthState());
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  // --- End New Auth State ---
+
+  // --- Auth Effect ---
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Attempt to initialize/check auth state if needed
+      // For now, just subscribe to changes
+      const unsubscribe = authService.subscribe(setAuthState);
+      setLoadingAuth(false); // Assume initial state is ready quickly
+      return unsubscribe;
+    };
+    checkAuth();
+  }, []);
+  // --- End Auth Effect ---
+
+
+  // --- Existing Artifact Bin Logic (conditionally used) ---
   const loadArtifacts = async () => {
     try {
       const allArtifacts = await getAllArtifacts();
@@ -35,8 +60,11 @@ export function App() {
   };
 
   useEffect(() => {
-    loadArtifacts();
-  }, []);
+    // Only load old artifact view data if not authenticated
+    if (!authState.isAuthenticated) {
+        loadArtifacts();
+    }
+  }, [authState.isAuthenticated]); // Reload if auth state changes
 
   useEffect(() => {
     const loadSelectedArtifact = async () => {
@@ -190,7 +218,6 @@ export function App() {
     toast.info("Fork created. You are now editing the new version.");
   };
 
-  // ... (handleFullscreenArtifact, closeFullscreen, formatSize remain the same) ...
   const handleFullscreenArtifact = (artifact: Artifact) => {
     setFullscreenArtifact(artifact);
   };
@@ -203,98 +230,63 @@ export function App() {
     if (bytes < 1024) return `${bytes} B`;
     return `${(bytes / 1024).toFixed(2)} KB`;
   };
+  // --- End Existing Artifact Bin Logic ---
 
+  // --- Login/Guest Access ---
+  const handleLoginAsGuest = async () => {
+    setLoadingAuth(true);
+    try {
+      await authService.loginAsGuest();
+      // Auth state updates via subscription
+    } catch (error) {
+      console.error("Guest login failed:", error);
+      toast.error("Could not log in as guest.");
+    } finally {
+      setLoadingAuth(false);
+    }
+  };
+  // --- End Login/Guest Access ---
+
+
+  if (loadingAuth) {
+      // Optional: Show a loading spinner while checking auth
+      return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
 
   return (
     <>
-      <div className="container mx-auto p-4 md:p-8 h-screen flex flex-col">
-        <header className="flex justify-between items-center py-4 flex-shrink-0">
-          <h1 className="text-2xl font-bold">Artifact Bin</h1>
-          <div className="flex gap-2">
-            <DataPortability onImportComplete={loadArtifacts} />
-            <Button onClick={() => handleNewArtifact('code')}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Snippet
+      {authState.isAuthenticated ? (
+        // Render Dashboard if authenticated (registered or guest)
+        <Dashboard />
+      ) : (
+        // Render existing Artifact Bin view or a Login prompt for unauthenticated users
+        <div className="container mx-auto p-4 md:p-8 h-screen flex flex-col">
+          <header className="flex justify-between items-center py-4 flex-shrink-0">
+            <h1 className="text-2xl font-bold">Artifact Bin</h1>
+            {/* Show Login/Guest button instead of artifact actions */}
+            <Button onClick={handleLoginAsGuest}>
+              <LogIn className="mr-2 h-4 w-4" />
+              Continue as Guest
             </Button>
-            <Button onClick={() => handleNewArtifact('project')} variant="secondary">
-              <Lightbulb className="mr-2 h-4 w-4" />
-              New Project Idea
-            </Button>
-          </div>
-        </header>
+            {/* Optionally add a real Login button here */}
+          </header>
 
-        <main className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow overflow-hidden">
-          {/* Artifact List Column */}
-          <div className="md:col-span-1 border rounded-lg p-4 flex flex-col overflow-hidden">
-            <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h2 className="font-medium">Artifacts</h2>
-              <div className="text-sm text-muted-foreground">
-                <Database className="inline mr-1 h-4 w-4" />
-                {stats.count} items ({formatSize(stats.size)})
-              </div>
-            </div>
+          <main className="flex-grow flex items-center justify-center">
+             <div className="text-center">
+                <h2 className="text-xl font-semibold mb-2">Welcome to Artifact Bin</h2>
+                <p className="text-muted-foreground mb-4">Log in or continue as a guest to manage your code snippets and project ideas.</p>
+                <Button onClick={handleLoginAsGuest}>
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Continue as Guest
+                </Button>
+             </div>
+          </main>
+          {/* Keep Toaster and InstallPrompt outside conditional rendering if needed globally */}
+        </div>
+      )}
 
-            <div className="flex-grow overflow-y-auto"> {/* Make list scrollable */}
-              {artifacts.length > 0 ? (
-                <ArtifactList
-                  artifacts={artifacts}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                />
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No artifacts yet</p>
-                  <Button variant="ghost" onClick={() => handleNewArtifact('code')} className="mt-2">
-                    Create your first artifact
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Editor/Generator Column */}
-          <div className="md:col-span-2 flex flex-col overflow-hidden border rounded-lg"> {/* Added border */}
-            {(currentArtifact) ? (
-              // Check if the current artifact is a project generator type
-              currentArtifact.language === PROJECT_GENERATOR_LANG ? (
-                <ProjectGenerator
-                  key={currentArtifact.id} // Ensure component remounts on artifact change
-                  artifact={currentArtifact}
-                  onSave={handleSaveArtifact}
-                  onFork={handleForkArtifact}
-                />
-              ) : (
-                // Render the standard ArtifactEditor for other types
-                <ArtifactEditor
-                  key={currentArtifact.id} // Ensure component remounts on artifact change
-                  artifact={currentArtifact}
-                  onSave={handleSaveArtifact}
-                  onDelete={handleDeleteArtifact}
-                  onFork={handleForkArtifact}
-                  onFullscreen={handleFullscreenArtifact}
-                />
-              )
-            ) : (
-              // Show placeholder if no artifact is selected
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <h3 className="text-lg font-medium">No artifact selected</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Select an artifact or create a new one
-                  </p>
-                  <div className="flex gap-2 justify-center">
-                    <Button onClick={() => handleNewArtifact('code')}>Create New Snippet</Button>
-                    <Button onClick={() => handleNewArtifact('project')} variant="secondary">Create New Project Idea</Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {/* Fullscreen Overlay */}
-      {fullscreenArtifact && (
+      {/* Fullscreen Overlay (Keep if needed globally or move into Dashboard) */}
+      {fullscreenArtifact && !authState.isAuthenticated && ( // Only show if not in dashboard view
         <div className="fixed inset-0 bg-background z-50 flex flex-col p-4">
            <div className="flex justify-end mb-4 flex-shrink-0">
              <Button variant="secondary" onClick={closeFullscreen}>
@@ -306,7 +298,6 @@ export function App() {
            </div>
         </div>
       )}
-
 
       {/* Prompt user to install as a PWA */}
       <InstallPrompt />

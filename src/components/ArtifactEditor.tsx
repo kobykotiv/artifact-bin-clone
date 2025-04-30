@@ -1,120 +1,56 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArtifactPreview } from "@/components/ArtifactPreview";
-import { Save, Copy, Trash2, Check, Code, Eye, GitBranch, Maximize } from "lucide-react";
-import { type Artifact } from "@/lib/db";
-import { toast } from "sonner";
-import { languages } from "@/lib/languages";
+import React, { useState } from 'react';
+import Editor from '@monaco-editor/react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { languages } from '@/lib/languages';
+import { type ArtifactData } from '@/lib/services/db';
+import { Save, X } from 'lucide-react';
 
 interface ArtifactEditorProps {
-  artifact?: Artifact;
-  onSave: (artifact: Partial<Artifact>) => void;
-  onDelete: () => void;
-  onFork: (artifact: Artifact) => void;
-  onFullscreen: (artifact: Artifact) => void;
-  isNew?: boolean;
+  artifact: ArtifactData;
+  onSave: (updatedArtifact: ArtifactData) => void;
+  onCancel: () => void;
 }
 
-const PROJECT_GENERATOR_LANG = 'project-generator';
-
-export function ArtifactEditor({
-  artifact,
-  onSave,
-  onDelete,
-  onFork,
-  onFullscreen,
-  isNew = false,
-}: ArtifactEditorProps) {
-  const [title, setTitle] = useState(artifact?.title || "");
-  const [language, setLanguage] = useState(artifact?.language || "javascript");
-  const [code, setCode] = useState(artifact?.code || "");
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState("code");
-
-  useEffect(() => {
-    if (artifact) {
-      setTitle(artifact.title);
-      setLanguage(artifact.language);
-      setCode(artifact.code);
-      setActiveTab("code");
-    } else {
-      setTitle("");
-      setLanguage("javascript");
-      setCode("");
-      setActiveTab("code");
-    }
-  }, [artifact]);
+export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorProps) {
+  const [editedArtifact, setEditedArtifact] = useState<ArtifactData>(artifact);
+  const [isDirty, setIsDirty] = useState(false);
 
   const handleSave = () => {
-    if (!code.trim()) {
-      toast.error("Cannot save empty artifact");
-      return;
-    }
-    
     onSave({
-      title: title || "Untitled",
-      language,
-      code,
+      ...editedArtifact,
+      updatedAt: new Date().toISOString()
     });
+    setIsDirty(false);
   };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopySuccess(true);
-      toast.success("Copied to clipboard");
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-      toast.error("Failed to copy to clipboard");
-    }
-  };
-
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this artifact?")) {
-      onDelete();
-    }
-  };
-
-  const handleFork = () => {
-    if (artifact) {
-      onFork(artifact);
-    }
-  };
-
-  const handleFullscreen = () => {
-    if (artifact) {
-      onFullscreen(artifact);
-    }
-  };
-
-  const isPreviewable = ['html', 'css', 'javascript', 'markdown'].includes(language);
-
-  if (!artifact || artifact.language === PROJECT_GENERATOR_LANG) {
-    return null;
-  }
 
   return (
-    <Card className="flex flex-col h-full overflow-hidden">
-      <CardHeader className="px-4 py-3 space-y-0 border-b">
-        <div className="flex items-center gap-2">
+    <>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <div className="flex items-center gap-4 flex-1">
           <Input
-            placeholder="Artifact title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="flex-1 text-base font-medium border-0 shadow-none focus-visible:ring-0 px-1"
+            value={editedArtifact.title}
+            onChange={(e) => {
+              setEditedArtifact(prev => ({ ...prev, title: e.target.value }));
+              setIsDirty(true);
+            }}
+            placeholder="Artifact Title"
+            className="max-w-xs"
           />
-          <Select value={language} onValueChange={setLanguage}>
+          <Select
+            value={editedArtifact.language}
+            onValueChange={(value) => {
+              setEditedArtifact(prev => ({ ...prev, language: value }));
+              setIsDirty(true);
+            }}
+          >
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Language" />
+              <SelectValue placeholder="Select Language" />
             </SelectTrigger>
             <SelectContent>
-              {languages.map((lang) => (
+              {languages.map(lang => (
                 <SelectItem key={lang.value} value={lang.value}>
                   {lang.label}
                 </SelectItem>
@@ -122,85 +58,44 @@ export function ArtifactEditor({
             </SelectContent>
           </Select>
         </div>
-      </CardHeader>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-grow overflow-hidden">
-        <div className="px-4 pt-3 flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="code" className="gap-1">
-              <Code className="h-4 w-4" /> Code
-            </TabsTrigger>
-            {isPreviewable && (
-              <TabsTrigger value="preview" className="gap-1">
-                <Eye className="h-4 w-4" /> Preview
-              </TabsTrigger>
-            )}
-          </TabsList>
-          {isPreviewable && (
-            <Button variant="ghost" size="sm" onClick={handleFullscreen} className="gap-1">
-              <Maximize className="h-4 w-4" />
-              Fullscreen
-            </Button>
-          )}
-        </div>
-
-        <TabsContent
-          value="code"
-          className="flex-grow overflow-auto p-0 m-0 focus-visible:ring-0"
-        >
-          <Textarea
-            placeholder="Paste or type your code here..."
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="h-full min-h-[400px] rounded-none border-0 resize-none font-mono text-sm leading-relaxed p-4 focus-visible:ring-0"
-          />
-        </TabsContent>
-
-        {isPreviewable && (
-          <TabsContent
-            value="preview"
-            className="flex-grow overflow-auto p-4 m-0 focus-visible:ring-0 bg-muted/10"
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onCancel}
           >
-            {artifact && (
-              <ArtifactPreview
-                artifact={{ ...artifact, code }}
-                isVisible={activeTab === "preview"}
-              />
-            )}
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <CardFooter className="px-4 py-3 border-t flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Button onClick={handleSave} className="gap-2">
-            <Save className="h-4 w-4" />
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button 
+            size="sm" 
+            onClick={handleSave}
+            disabled={!isDirty}
+          >
+            <Save className="w-4 h-4 mr-2" />
             Save
           </Button>
-          <Button variant="outline" onClick={handleCopy} className="gap-2">
-            {copySuccess ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-            Copy
-          </Button>
         </div>
-        <div className="flex items-center gap-2">
-          {!isNew && (
-            <Button variant="secondary" onClick={handleFork} className="gap-2">
-              <GitBranch className="h-4 w-4" />
-              Fork
-            </Button>
-          )}
-          {!isNew && (
-            <Button variant="destructive" onClick={handleDelete} className="gap-2">
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          )}
-        </div>
-      </CardFooter>
-    </Card>
+      </CardHeader>
+      <CardContent className="p-0 flex-grow">
+        <Editor
+          height="100%"
+          defaultValue={editedArtifact.content}
+          language={editedArtifact.language}
+          theme="vs-dark"
+          onChange={(value) => {
+            setEditedArtifact(prev => ({ ...prev, content: value || '' }));
+            setIsDirty(true);
+          }}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: 'JetBrains Mono',
+            scrollBeyondLastLine: false,
+            automaticLayout: true
+          }}
+        />
+      </CardContent>
+    </>
   );
 }
