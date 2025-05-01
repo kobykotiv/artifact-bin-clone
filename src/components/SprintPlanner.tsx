@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, Circle, Save, CalendarDays } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, Circle, Save, CalendarDays, Loader2Icon, Pencil, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { type ArtifactData } from '@/lib/services/db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
@@ -43,6 +43,14 @@ interface SprintPlanData {
   sprints: Sprint[];
 }
 
+// Default values for a new sprint
+const defaultNewSprintData = {
+  name: '',
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default to 2 weeks
+  goal: '',
+};
+
 export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
   const [planData, setPlanData] = useState<SprintPlanData>({
     id: '',
@@ -57,9 +65,14 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
     title: '',
     description: '',
     status: 'todo',
-    points: 1
+    points: 1,
+    assignee: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false); // New state for edit dialog
+  const [editingTask, setEditingTask] = useState<Task | null>(null); // New state for task being edited
+  const [newSprintDialogOpen, setNewSprintDialogOpen] = useState(false); // State for new sprint dialog
+  const [newSprintData, setNewSprintData] = useState(defaultNewSprintData); // State for new sprint form data
 
   // Parse artifact content on load
   useEffect(() => {
@@ -101,22 +114,36 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
     }
   };
 
-  const createNewSprint = () => {
+  // Renamed original createNewSprint to handleCreateSprint, now triggered by dialog
+  const handleCreateSprint = () => {
+    if (!newSprintData.name.trim()) {
+      toast.error('Sprint name is required');
+      return;
+    }
+    // Basic date validation
+    if (newSprintData.startDate && newSprintData.endDate && newSprintData.startDate > newSprintData.endDate) {
+        toast.error('End date must be after start date');
+        return;
+    }
+
     const newSprint: Sprint = {
       id: crypto.randomUUID(),
-      name: `Sprint ${planData.sprints.length + 1}`,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 weeks from now
-      goal: '',
+      name: newSprintData.name.trim(),
+      startDate: newSprintData.startDate,
+      endDate: newSprintData.endDate,
+      goal: newSprintData.goal.trim(),
       tasks: []
     };
-    
+
     setPlanData(prev => ({
       ...prev,
       sprints: [...prev.sprints, newSprint]
     }));
-    
+
     setSelectedSprintId(newSprint.id);
+    setNewSprintData(defaultNewSprintData); // Reset form
+    setNewSprintDialogOpen(false); // Close dialog
+    toast.success(`Sprint "${newSprint.name}" created`);
   };
 
   const createNewTask = () => {
@@ -129,6 +156,7 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
     const task: Task = {
       ...newTask,
       id: crypto.randomUUID(),
+      assignee: newTask.assignee?.trim() || undefined,
     };
     
     setPlanData(prev => ({
@@ -144,7 +172,8 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
       title: '',
       description: '',
       status: 'todo',
-      points: 1
+      points: 1,
+      assignee: '',
     });
     
     setNewTaskDialogOpen(false);
@@ -164,6 +193,43 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
           : sprint
       )
     }));
+  };
+
+  // New function to update a task's details
+  const updateTask = (updatedTask: Task) => {
+    if (!selectedSprintId || !updatedTask) return;
+    if (!updatedTask.title.trim()) {
+      toast.error('Task title cannot be empty');
+      return;
+    }
+
+    const taskToSave: Task = {
+        ...updatedTask,
+        assignee: updatedTask.assignee?.trim() || undefined,
+    };
+
+    setPlanData(prev => ({
+      ...prev,
+      sprints: prev.sprints.map(sprint =>
+        sprint.id === selectedSprintId
+          ? {
+              ...sprint,
+              tasks: sprint.tasks.map(task =>
+                task.id === taskToSave.id ? taskToSave : task
+              )
+            }
+          : sprint
+      )
+    }));
+    setEditTaskDialogOpen(false);
+    setEditingTask(null);
+    toast.success('Task updated successfully');
+  };
+
+  // Function to open the edit dialog
+  const handleEditTaskClick = (task: Task) => {
+    setEditingTask(task);
+    setEditTaskDialogOpen(true);
   };
 
   const deleteTask = (sprintId: string, taskId: string) => {
@@ -229,11 +295,62 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={createNewSprint}>
-            <Plus className="w-4 h-4 mr-1" /> New Sprint
-          </Button>
+          {/* Updated Button to trigger Dialog */}
+          <Dialog open={newSprintDialogOpen} onOpenChange={setNewSprintDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="w-4 h-4 mr-1" /> New Sprint
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Sprint</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Sprint Name</label>
+                  <Input
+                    value={newSprintData.name}
+                    onChange={(e) => setNewSprintData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder={`Sprint ${planData.sprints.length + 1}`}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Date</label>
+                     <Input
+                        type="date"
+                        value={newSprintData.startDate}
+                        onChange={(e) => setNewSprintData(prev => ({ ...prev, startDate: e.target.value }))}
+                      />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">End Date</label>
+                     <Input
+                        type="date"
+                        value={newSprintData.endDate}
+                        onChange={(e) => setNewSprintData(prev => ({ ...prev, endDate: e.target.value }))}
+                      />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Sprint Goal (Optional)</label>
+                  <Textarea
+                    value={newSprintData.goal}
+                    onChange={(e) => setNewSprintData(prev => ({ ...prev, goal: e.target.value }))}
+                    placeholder="What is the primary objective of this sprint?"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setNewSprintDialogOpen(false); setNewSprintData(defaultNewSprintData); }}>Cancel</Button>
+                <Button onClick={handleCreateSprint}>Create Sprint</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Button onClick={handleSave} disabled={isLoading}>
-            {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Plan</>}
+            {isLoading ? <><Loader2Icon className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><Save className="w-4 h-4 mr-2" /> Save Plan</>}
           </Button>
         </div>
       </div>
@@ -471,6 +588,15 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
                           </Select>
                         </div>
                       </div>
+                       {/* Assignee Input */}
+                       <div className="space-y-2">
+                        <label className="text-sm font-medium">Assignee (Optional)</label>
+                        <Input
+                          value={newTask.assignee || ''}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, assignee: e.target.value }))}
+                          placeholder="Assignee name"
+                        />
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setNewTaskDialogOpen(false)}>Cancel</Button>
@@ -495,17 +621,34 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
                             {task.description && (
                               <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
                             )}
-                            <div className="flex justify-between items-center mt-4">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'in-progress')}
-                              >
-                                Start
-                              </Button>
-                              <Button 
-                                size="sm" 
+                            {/* Display Assignee */}
+                            {task.assignee && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                                <User className="w-3 h-3" />
+                                <span>{task.assignee}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center mt-2"> {/* Adjusted margin */}
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'in-progress')}
+                                >
+                                  Start
+                                </Button>
+                                <Button // Edit Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditTaskClick(task)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <Button
+                                size="sm"
                                 variant="ghost"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => deleteTask(selectedSprint.id, task.id)}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -527,24 +670,41 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
                       <div className="flex-grow space-y-2 p-2">
                         {selectedSprint.tasks.filter(task => task.status === 'in-progress').map(task => (
                           <Card key={task.id} className="p-3">
-                            <div className="flex justify-between items-start">
+                             <div className="flex justify-between items-start">
                               <h5 className="font-medium">{task.title}</h5>
                               <Badge variant="outline">{task.points}</Badge>
                             </div>
                             {task.description && (
                               <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
                             )}
-                            <div className="flex justify-between items-center mt-4">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'done')}
-                              >
-                                Complete
-                              </Button>
-                              <Button 
-                                size="sm" 
+                            {/* Display Assignee */}
+                            {task.assignee && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                                <User className="w-3 h-3" />
+                                <span>{task.assignee}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center mt-2"> {/* Adjusted margin */}
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'done')}
+                                >
+                                  Complete
+                                </Button>
+                                <Button // Edit Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditTaskClick(task)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <Button
+                                size="sm"
                                 variant="ghost"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => deleteTask(selectedSprint.id, task.id)}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -566,24 +726,41 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
                       <div className="flex-grow space-y-2 p-2">
                         {selectedSprint.tasks.filter(task => task.status === 'done').map(task => (
                           <Card key={task.id} className="p-3">
-                            <div className="flex justify-between items-start">
+                             <div className="flex justify-between items-start">
                               <h5 className="font-medium line-through opacity-70">{task.title}</h5>
                               <Badge variant="outline">{task.points}</Badge>
                             </div>
                             {task.description && (
                               <p className="text-sm text-muted-foreground mt-1 opacity-70">{task.description}</p>
                             )}
-                            <div className="flex justify-between items-center mt-4">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'todo')}
-                              >
-                                Reopen
-                              </Button>
-                              <Button 
-                                size="sm" 
+                            {/* Display Assignee */}
+                            {task.assignee && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 opacity-70">
+                                <User className="w-3 h-3" />
+                                <span>{task.assignee}</span>
+                              </div>
+                            )}
+                             <div className="flex justify-between items-center mt-2"> {/* Adjusted margin */}
+                               <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'todo')}
+                                >
+                                  Reopen
+                                </Button>
+                                <Button // Edit Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditTaskClick(task)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                              </div>
+                              <Button
+                                size="sm"
                                 variant="ghost"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => deleteTask(selectedSprint.id, task.id)}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -602,6 +779,84 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
                 </ScrollArea>
               </CardContent>
             </Card>
+
+            {/* Edit Task Dialog */}
+            <Dialog open={editTaskDialogOpen} onOpenChange={setEditTaskDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Task</DialogTitle>
+                </DialogHeader>
+                {editingTask && ( // Render only if editingTask is not null
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Title</label>
+                      <Input
+                        value={editingTask.title}
+                        onChange={(e) => setEditingTask(prev => prev ? { ...prev, title: e.target.value } : null)}
+                        placeholder="Task title"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Description</label>
+                      <Textarea
+                        value={editingTask.description}
+                        onChange={(e) => setEditingTask(prev => prev ? { ...prev, description: e.target.value } : null)}
+                        placeholder="Task description"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Points</label>
+                        <Select
+                          value={editingTask.points.toString()}
+                          onValueChange={(value) => setEditingTask(prev => prev ? { ...prev, points: parseInt(value) } : null)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Points" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 5, 8, 13].map(points => (
+                              <SelectItem key={points} value={points.toString()}>{points}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Status</label>
+                        <Select
+                          value={editingTask.status}
+                          onValueChange={(value: Task['status']) => setEditingTask(prev => prev ? { ...prev, status: value } : null)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="todo">Todo</SelectItem>
+                            <SelectItem value="in-progress">In Progress</SelectItem>
+                            <SelectItem value="done">Done</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {/* Assignee Input */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Assignee (Optional)</label>
+                      <Input
+                        value={editingTask.assignee || ''}
+                        onChange={(e) => setEditingTask(prev => prev ? { ...prev, assignee: e.target.value } : null)}
+                        placeholder="Assignee name"
+                      />
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setEditTaskDialogOpen(false); setEditingTask(null); }}>Cancel</Button>
+                  <Button onClick={() => editingTask && updateTask(editingTask)}>Save Changes</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -613,7 +868,7 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
               <p className="text-muted-foreground mb-4">
                 Create a sprint to start planning your work. Each sprint can contain multiple tasks organized by status.
               </p>
-              <Button onClick={createNewSprint}>
+              <Button onClick={handleCreateSprint}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Sprint
               </Button>
