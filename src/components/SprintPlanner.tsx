@@ -5,12 +5,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, Circle, Save, CalendarDays, Loader2Icon, Pencil, User } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, Circle, Save, CalendarDays, Loader2Icon, Pencil, User, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { type ArtifactData } from '@/lib/services/db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 interface SprintPlannerProps {
   artifact: ArtifactData;
@@ -41,6 +43,13 @@ interface SprintPlanData {
   projectName: string;
   description?: string;
   sprints: Sprint[];
+}
+
+// Add a type for drag item
+interface DragItem {
+  id: string;
+  type: string;
+  originalStatus: 'todo' | 'in-progress' | 'done';
 }
 
 // Default values for a new sprint
@@ -271,6 +280,156 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
   const completedPoints = selectedSprint 
     ? selectedSprint.tasks.filter(t => t.status === 'done').reduce((sum, task) => sum + task.points, 0) 
     : 0;
+
+  // New handler for drag and drop task updates
+  const handleTaskDrop = (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
+    if (!selectedSprintId) return;
+    
+    const task = selectedSprint?.tasks.find(t => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+
+    updateTaskStatus(selectedSprintId, taskId, newStatus);
+    toast.success(`Task moved to ${newStatus.replace('-', ' ')}`);
+  };
+
+  // Task component with drag functionality
+  const TaskCard = ({ task, sprintId, columnType }: { 
+    task: Task, 
+    sprintId: string,
+    columnType: 'todo' | 'in-progress' | 'done'
+  }) => {
+    const [{ isDragging }, dragRef, previewRef] = useDrag({
+      type: 'TASK',
+      item: { id: task.id, type: 'TASK', originalStatus: task.status },
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    });
+
+    const opacity = isDragging ? 0.4 : 1;
+    const isCompleted = task.status === 'done';
+
+    return (
+      <Card 
+        key={task.id} 
+        className="p-3 cursor-move" 
+        style={{ opacity }}
+        ref={previewRef}
+      >
+        <div className="flex items-center gap-2">
+          <div ref={dragRef} className="cursor-grab hover:text-primary">
+            <GripVertical className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <div className="flex justify-between items-start">
+              <h5 className={`font-medium ${isCompleted ? 'line-through opacity-70' : ''}`}>{task.title}</h5>
+              <Badge variant="outline">{task.points}</Badge>
+            </div>
+            {task.description && (
+              <p className={`text-sm text-muted-foreground mt-1 ${isCompleted ? 'opacity-70' : ''}`}>{task.description}</p>
+            )}
+            {task.assignee && (
+              <div className={`flex items-center gap-1 text-xs text-muted-foreground mt-2 ${isCompleted ? 'opacity-70' : ''}`}>
+                <User className="w-3 h-3" />
+                <span>{task.assignee}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex gap-1">
+            {columnType === 'todo' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => updateTaskStatus(sprintId, task.id, 'in-progress')}
+              >
+                Start
+              </Button>
+            )}
+            {columnType === 'in-progress' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => updateTaskStatus(sprintId, task.id, 'done')}
+              >
+                Complete
+              </Button>
+            )}
+            {columnType === 'done' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => updateTaskStatus(sprintId, task.id, 'todo')}
+              >
+                Reopen
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleEditTaskClick(task)}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => deleteTask(sprintId, task.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
+  // Column component with drop functionality
+  const TaskColumn = ({ title, tasks, status, sprintId }: {
+    title: string;
+    tasks: Task[];
+    status: 'todo' | 'in-progress' | 'done';
+    sprintId: string;
+  }) => {
+    const [{ isOver }, dropRef] = useDrop({
+      accept: 'TASK',
+      drop: (item: DragItem) => {
+        if (item.originalStatus !== status) {
+          handleTaskDrop(item.id, status);
+        }
+      },
+      collect: (monitor) => ({
+        isOver: !!monitor.isOver(),
+      }),
+    });
+    
+    return (
+      <div 
+        className={`border-r last:border-r-0 p-2 flex flex-col h-full ${isOver ? 'bg-muted/50' : ''}`}
+        ref={dropRef}
+      >
+        <h4 className="font-medium p-2">{title}</h4>
+        <div className="flex-grow space-y-2 p-2">
+          {tasks.map(task => (
+            <TaskCard 
+              key={task.id}
+              task={task}
+              sprintId={sprintId}
+              columnType={status}
+            />
+          ))}
+          {tasks.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground p-4">
+              No tasks in {title.toLowerCase()}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -606,177 +765,30 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
                 </Dialog>
               </CardHeader>
               <CardContent className="p-0 flex-grow overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="grid grid-cols-1 md:grid-cols-3 h-full">
-                    {/* Todo Column */}
-                    <div className="border-r p-2 flex flex-col h-full">
-                      <h4 className="font-medium p-2">Todo</h4>
-                      <div className="flex-grow space-y-2 p-2">
-                        {selectedSprint.tasks.filter(task => task.status === 'todo').map(task => (
-                          <Card key={task.id} className="p-3">
-                            <div className="flex justify-between items-start">
-                              <h5 className="font-medium">{task.title}</h5>
-                              <Badge variant="outline">{task.points}</Badge>
-                            </div>
-                            {task.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
-                            )}
-                            {/* Display Assignee */}
-                            {task.assignee && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
-                                <User className="w-3 h-3" />
-                                <span>{task.assignee}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center mt-2"> {/* Adjusted margin */}
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'in-progress')}
-                                >
-                                  Start
-                                </Button>
-                                <Button // Edit Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditTaskClick(task)}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => deleteTask(selectedSprint.id, task.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </Card>
-                        ))}
-                        {selectedSprint.tasks.filter(task => task.status === 'todo').length === 0 && (
-                          <div className="text-center text-sm text-muted-foreground p-4">
-                            No tasks in todo
-                          </div>
-                        )}
-                      </div>
+                <DndProvider backend={HTML5Backend}>
+                  <ScrollArea className="h-full">
+                    <div className="grid grid-cols-1 md:grid-cols-3 h-full">
+                      <TaskColumn
+                        title="Todo"
+                        tasks={selectedSprint.tasks.filter(task => task.status === 'todo')}
+                        status="todo"
+                        sprintId={selectedSprint.id}
+                      />
+                      <TaskColumn
+                        title="In Progress"
+                        tasks={selectedSprint.tasks.filter(task => task.status === 'in-progress')}
+                        status="in-progress"
+                        sprintId={selectedSprint.id}
+                      />
+                      <TaskColumn
+                        title="Done"
+                        tasks={selectedSprint.tasks.filter(task => task.status === 'done')}
+                        status="done"
+                        sprintId={selectedSprint.id}
+                      />
                     </div>
-                    
-                    {/* In Progress Column */}
-                    <div className="border-r p-2 flex flex-col h-full">
-                      <h4 className="font-medium p-2">In Progress</h4>
-                      <div className="flex-grow space-y-2 p-2">
-                        {selectedSprint.tasks.filter(task => task.status === 'in-progress').map(task => (
-                          <Card key={task.id} className="p-3">
-                             <div className="flex justify-between items-start">
-                              <h5 className="font-medium">{task.title}</h5>
-                              <Badge variant="outline">{task.points}</Badge>
-                            </div>
-                            {task.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
-                            )}
-                            {/* Display Assignee */}
-                            {task.assignee && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
-                                <User className="w-3 h-3" />
-                                <span>{task.assignee}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center mt-2"> {/* Adjusted margin */}
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'done')}
-                                >
-                                  Complete
-                                </Button>
-                                <Button // Edit Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditTaskClick(task)}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => deleteTask(selectedSprint.id, task.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </Card>
-                        ))}
-                        {selectedSprint.tasks.filter(task => task.status === 'in-progress').length === 0 && (
-                          <div className="text-center text-sm text-muted-foreground p-4">
-                            No tasks in progress
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Done Column */}
-                    <div className="p-2 flex flex-col h-full">
-                      <h4 className="font-medium p-2">Done</h4>
-                      <div className="flex-grow space-y-2 p-2">
-                        {selectedSprint.tasks.filter(task => task.status === 'done').map(task => (
-                          <Card key={task.id} className="p-3">
-                             <div className="flex justify-between items-start">
-                              <h5 className="font-medium line-through opacity-70">{task.title}</h5>
-                              <Badge variant="outline">{task.points}</Badge>
-                            </div>
-                            {task.description && (
-                              <p className="text-sm text-muted-foreground mt-1 opacity-70">{task.description}</p>
-                            )}
-                            {/* Display Assignee */}
-                            {task.assignee && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 opacity-70">
-                                <User className="w-3 h-3" />
-                                <span>{task.assignee}</span>
-                              </div>
-                            )}
-                             <div className="flex justify-between items-center mt-2"> {/* Adjusted margin */}
-                               <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateTaskStatus(selectedSprint.id, task.id, 'todo')}
-                                >
-                                  Reopen
-                                </Button>
-                                <Button // Edit Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleEditTaskClick(task)}
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => deleteTask(selectedSprint.id, task.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </Card>
-                        ))}
-                        {selectedSprint.tasks.filter(task => task.status === 'done').length === 0 && (
-                          <div className="text-center text-sm text-muted-foreground p-4">
-                            No completed tasks
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </ScrollArea>
+                  </ScrollArea>
+                </DndProvider>
               </CardContent>
             </Card>
 
