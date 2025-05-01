@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import ReactMarkdown from 'react-markdown'; // Import react-markdown
 
 interface SprintPlannerProps {
   artifact: ArtifactData;
@@ -326,7 +327,10 @@ export function SprintPlanner({ artifact, onSave }: SprintPlannerProps) {
               <Badge variant="outline">{task.points}</Badge>
             </div>
             {task.description && (
-              <p className={`text-sm text-muted-foreground mt-1 ${isCompleted ? 'opacity-70' : ''}`}>{task.description}</p>
+              // Wrap description in ReactMarkdown
+              <div className={`text-sm text-muted-foreground mt-1 prose prose-sm dark:prose-invert max-w-none ${isCompleted ? 'opacity-70' : ''}`}>
+                <ReactMarkdown>{task.description}</ReactMarkdown>
+              </div>
             )}
             {task.assignee && (
               <div className={`flex items-center gap-1 text-xs text-muted-foreground mt-2 ${isCompleted ? 'opacity-70' : ''}`}>
