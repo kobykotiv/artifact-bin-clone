@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout, DollarSign, PieChart, Building, Target, ChevronRight, FolderTree, File, X } from 'lucide-react'; // Added Target icon
+import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout, DollarSign, PieChart, Building, Target, ChevronRight, FolderTree, File, X, FileDown } from 'lucide-react'; // Added Target icon
 import { ArtifactViewer } from '@/components/ArtifactViewer';
 import { ArtifactEditor } from '@/components/ArtifactEditor';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,9 @@ import { StatsCard } from '@/components/Dashboard/StatsCard';
 import { BusinessPlanGenerator } from '@/components/BusinessPlanGenerator'; // Import the new component
 import { FolderExplorer } from './FolderExplorer';
 import { PromptSidebar } from './PromptSidebar';
+import { TemplateModal } from '@/components/TemplateModal';
+import { ExportModal } from '@/components/ExportModal';
+import { exportToMarkdown, exportToPDF } from '@/lib/utils/export';
 
 export function Dashboard() {
   // Auth state
@@ -42,6 +45,48 @@ export function Dashboard() {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('artifacts'); // Add missing activeTab state
   const [searchQuery, setSearchQuery] = useState<string>(''); // Add missing searchQuery state for search input
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+
+  // Initialize responsive state based on screen size
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+      setIsTablet(window.innerWidth >= 640 && window.innerWidth < 1024);
+    };
+    
+    // Set initial values
+    handleResize();
+    
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+    
+    // Clean up
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Auto-hide panels on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setShowExplorer(false);
+      setShowPromptPanel(false);
+    } else if (isTablet) {
+      // On tablet, show explorer but hide prompt panel
+      setShowExplorer(true);
+      setShowPromptPanel(false);
+    }
+  }, [isMobile, isTablet]);
+
+  // When selecting an artifact on mobile, hide the explorer
+  useEffect(() => {
+    if (isMobile && selectedArtifactId) {
+      setShowExplorer(false);
+    }
+  }, [selectedArtifactId, isMobile]);
 
   // --- Data Fetching ---
   // ...existing code...
@@ -139,60 +184,6 @@ export function Dashboard() {
     setSelectedArtifactId(id);
   }, []);
 
-  // Modified handleCreateArtifact to potentially create different types
-  // ...existing code...
-  const handleCreateNew = useCallback((type: 'code' | 'project' | 'business') => {
-    // ...existing code...
-  }, [authState.user, /* createPlanningArtifact dependency */]);
-
-
-  const handleSaveArtifact = useCallback(async (updatedArtifact: ArtifactData) => {
-    if (!authState.user) return;
-    try {
-      // Ensure fileType matches language if it's a standard code type
-      // Keep project-spec/business plans as json
-      if (!['project-spec'].includes(updatedArtifact.language)) {
-         updatedArtifact.fileType = getFileTypeFromLanguage(updatedArtifact.language);
-      } else {
-         updatedArtifact.fileType = 'json'; // Ensure specs/plans are saved as json
-      }
-      await dbService.saveArtifact(updatedArtifact);
-      await fetchUserArtifacts(authState.user.id); // Refresh list from source
-      // selectedArtifactId remains the same, useEffect will update currentArtifact
-      setIsEditing(false);
-      toast.success('Artifact saved successfully');
-    } catch (error) {
-      console.error("Failed to save artifact:", error);
-      toast.error("Failed to save artifact");
-    }
-  }, [authState.user, fetchUserArtifacts]);
-
-  const handleDeleteArtifact = useCallback(async (artifactToDelete: ArtifactData) => {
-    if (!authState.user) return;
-    try {
-      await dbService.deleteArtifact(artifactToDelete.id);
-      await fetchUserArtifacts(authState.user.id); // Refresh list from source
-      setSelectedArtifactId(null); // Clear selection
-      toast.success('Artifact deleted successfully');
-    } catch (error) {
-      console.error("Failed to delete artifact:", error);
-      toast.error("Failed to delete artifact");
-    }
-  }, [authState.user, fetchUserArtifacts]);
-
-  // Add handleForkArtifact
-  // ...existing code...
-  const handleForkArtifact = useCallback(async (artifactToFork: ArtifactData) => {
-    // ...existing code...
-  }, [authState.user, fetchUserArtifacts]);
-
-
-  // ...existing code...
-  const handleUpload = useCallback(async (file: File) => {
-    // ...existing code...
-  }, [authState.user, fetchUserArtifacts]);
-
-
   // Function to create a specific planning artifact if needed - UPDATED
   const createPlanningArtifact = useCallback((planType: string): ArtifactData | null => {
     if (!authState.user) return null;
@@ -289,6 +280,170 @@ export function Dashboard() {
 
     return newArtifact;
   }, [authState.user]);
+
+  // Modified handleCreateArtifact to potentially create different types
+  const handleCreateNew = useCallback((type: 'code' | 'project' | 'business', language?: string) => {
+    if (!authState.user) return;
+
+    if (type === 'code') {
+      const newArtifact: ArtifactData = {
+        id: crypto.randomUUID(),
+        userId: authState.user.id,
+        title: 'Untitled Code Snippet',
+        language: language || 'javascript',
+        content: '// Add your code here\n',
+        fileType: getFileTypeFromLanguage(language || 'javascript'),
+        tags: ['code'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        avatarSeed: crypto.randomUUID()
+      };
+      
+      setUserArtifacts(prev => [newArtifact, ...prev]);
+      setSelectedArtifactId(newArtifact.id);
+      setIsEditing(true);
+    } else if (type === 'project') {
+      const projectArtifact = createPlanningArtifact('project');
+      if (projectArtifact) {
+        setUserArtifacts(prev => [projectArtifact, ...prev]);
+        setSelectedArtifactId(projectArtifact.id);
+        setIsEditing(true);
+      }
+    }
+  }, [authState.user, createPlanningArtifact]);
+
+  const handleSaveArtifact = useCallback(async (updatedArtifact: ArtifactData) => {
+    if (!authState.user) return;
+    try {
+      // Ensure fileType matches language if it's a standard code type
+      // Keep project-spec/business plans as json
+      if (!['project-spec'].includes(updatedArtifact.language)) {
+         updatedArtifact.fileType = getFileTypeFromLanguage(updatedArtifact.language);
+      } else {
+         updatedArtifact.fileType = 'json'; // Ensure specs/plans are saved as json
+      }
+      await dbService.saveArtifact(updatedArtifact);
+      await fetchUserArtifacts(authState.user.id); // Refresh list from source
+      // selectedArtifactId remains the same, useEffect will update currentArtifact
+      setIsEditing(false);
+      toast.success('Artifact saved successfully');
+    } catch (error) {
+      console.error("Failed to save artifact:", error);
+      toast.error("Failed to save artifact");
+    }
+  }, [authState.user, fetchUserArtifacts]);
+
+  const handleDeleteArtifact = useCallback(async (artifactToDelete: ArtifactData) => {
+    if (!authState.user) return;
+    try {
+      await dbService.deleteArtifact(artifactToDelete.id);
+      await fetchUserArtifacts(authState.user.id); // Refresh list from source
+      setSelectedArtifactId(null); // Clear selection
+      toast.success('Artifact deleted successfully');
+    } catch (error) {
+      console.error("Failed to delete artifact:", error);
+      toast.error("Failed to delete artifact");
+    }
+  }, [authState.user, fetchUserArtifacts]);
+
+  const handleForkArtifact = useCallback(async (artifactToFork: ArtifactData) => {
+    if (!authState.user) return;
+
+    try {
+      const forkedArtifact: ArtifactData = {
+        ...artifactToFork,
+        id: crypto.randomUUID(),
+        userId: authState.user.id,
+        title: `Fork of ${artifactToFork.title}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        avatarSeed: crypto.randomUUID()
+      };
+
+      await dbService.saveArtifact(forkedArtifact);
+      await fetchUserArtifacts(authState.user.id);
+      setSelectedArtifactId(forkedArtifact.id);
+      toast.success('Artifact forked successfully');
+    } catch (error) {
+      console.error("Failed to fork artifact:", error);
+      toast.error("Failed to fork artifact");
+    }
+  }, [authState.user, fetchUserArtifacts]);
+
+  const handleUpload = useCallback(async (file: File) => {
+    if (!authState.user) return;
+
+    try {
+      const content = await file.text();
+      const fileType = file.name.split('.').pop() || 'txt';
+      const language = getLanguageFromFileType(fileType) || 'plaintext';
+
+      const uploadedArtifact: ArtifactData = {
+        id: crypto.randomUUID(),
+        userId: authState.user.id,
+        title: file.name,
+        language,
+        content,
+        fileType,
+        tags: ['upload', 'code'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        avatarSeed: crypto.randomUUID()
+      };
+
+      await dbService.saveArtifact(uploadedArtifact);
+      await fetchUserArtifacts(authState.user.id);
+      setSelectedArtifactId(uploadedArtifact.id);
+      toast.success('File uploaded successfully');
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      toast.error("Failed to upload file");
+    }
+  }, [authState.user, fetchUserArtifacts]);
+
+  const handleTemplateSelect = useCallback((template: any) => {
+    if (template.type === 'code') {
+      handleCreateNew('code', template.language);
+    } else if (template.type === 'project') {
+      handleCreateNew('project');
+    } else {
+      const art = createPlanningArtifact(template.type);
+      if (art) {
+        setUserArtifacts(prev => [art, ...prev]);
+        setSelectedArtifactId(art.id);
+      }
+    }
+    setShowTemplateModal(false);
+  }, [handleCreateNew, createPlanningArtifact]);
+
+  const handleExport = useCallback(async (artifacts: ArtifactData[], format: 'markdown' | 'pdf') => {
+    try {
+      if (format === 'markdown') {
+        const content = await exportToMarkdown(artifacts);
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'artifacts.md';
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const content = await exportToPDF(artifacts);
+        const blob = new Blob([content], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'artifacts.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      setShowExportModal(false);
+      toast.success(`Exported ${artifacts.length} artifacts as ${format.toUpperCase()}`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export artifacts');
+    }
+  }, []);
 
   // --- Render Logic ---
   // ...existing code...
@@ -457,23 +612,34 @@ export function Dashboard() {
                   New
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Create New</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Quick Start</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleCreateNew('code')}>
+                  <File className="mr-2 h-4 w-4" />
                   Code Artifact
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleCreateNew('project')}>
+                  <Layout className="mr-2 h-4 w-4" />
                   Project Specification
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Marketing'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); } }}>Marketing Plan</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Funding'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); } }}>Fundraising Plan</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Sprint'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); } }}>Sprint Plan</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowTemplateModal(true)}>
+                  <Search className="mr-2 h-4 w-4" />
+                  Browse all templates...
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             
             <DataPortability onImportComplete={() => fetchUserArtifacts(authState.user.id)} />
+            <Button
+              variant="outline"
+              onClick={() => setShowExportModal(true)}
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Export
+            </Button>
           </div>
         </div>
       </header>
@@ -574,6 +740,18 @@ export function Dashboard() {
           </Button>
         )}
       </div>
+
+      <TemplateModal 
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        onSelect={handleTemplateSelect}
+      />
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        artifacts={userArtifacts}
+        onExport={handleExport}
+      />
     </div>
   );
 }
