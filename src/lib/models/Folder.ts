@@ -1,41 +1,51 @@
 import mongoose, { Schema, model, Document, Types } from 'mongoose';
+import crypto from 'crypto';
 
-// Re-using the interface from db.ts for consistency
+export interface IFolder extends Document {
+  userId: Types.ObjectId;
+  name: string;
+  description?: string;
+  isPublic: boolean;
+  sharedWith: Types.ObjectId[];
+  parentFolderId?: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Folder data interface for frontend use
 export interface FolderData {
   id: string;
   userId: string;
-  parentId?: string; // For nested folders
   name: string;
+  description?: string;
+  isPublic: boolean;
+  sharedWith: string[];
+  parentFolderId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// Mongoose Document Interface
-export interface IFolder extends Document {
-  userId: Types.ObjectId; // Use ObjectId for Mongoose relations
-  parentId?: Types.ObjectId; // Reference to parent folder
-  name: string;
-  // Timestamps handled by Mongoose
-}
+const FolderSchema = new Schema<IFolder>(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    name: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    isPublic: { type: Boolean, default: false },
+    sharedWith: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    parentFolderId: { type: Schema.Types.ObjectId, ref: 'Folder', index: true },
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+    id: false,
+  }
+);
 
-const FolderSchema = new Schema<IFolder>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  parentId: { type: Schema.Types.ObjectId, ref: 'Folder', index: true }, // Self-reference for nesting
-  name: { type: String, required: true, trim: true },
-}, {
-  timestamps: true, // Adds createdAt and updatedAt
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true },
-  id: false
-});
-
-// Virtual for 'id'
+// Virtual for 'id' to map '_id'
 FolderSchema.virtual('id').get(function(this: IFolder) {
   return this._id.toHexString();
 });
-
-// Index for efficient querying by user and parent
-FolderSchema.index({ userId: 1, parentId: 1 });
 
 const FolderModel = mongoose.models.Folder || model<IFolder>('Folder', FolderSchema);
 

@@ -10,13 +10,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 // Use relative paths for context-menu and checkbox
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils'; '@/lib/utils'; // Import getRandomItem from utils
 import { Label } from '@/components/ui/label';
 import { Checkbox } from "@radix-ui/react-checkbox";
 // NEW Icons for new tabs
 import { DollarSign, PieChart, Building, Target, Zap, ArrowUpRight, Save, Shuffle, ArrowRight, Copy, BarChart, Server, FileText, FolderTree, Trash, Edit, RotateCw, Layers, Database, GitBranchPlus, Users, Settings, GitBranch, GitCommit, GitFork, Layout, ListTodo, Network, Briefcase, Lightbulb, BarChart3, Code } from 'lucide-react'; // Add Objective icons and others
 import { toast } from 'sonner';
 import { type ArtifactData } from '@/lib/services/db'; // Import ArtifactData type
+
+// Add imports for guides
+import { corporationSetupGuide } from '@/lib/businessGuides/corporationSetup';
+import { termSheetGuide } from '@/lib/businessGuides/termSheet';
 
 // Rename props interface
 interface BusinessPlanGeneratorProps {
@@ -208,7 +212,7 @@ const securityFeatures = ['Role-based Access Control', 'Audit Logging', 'Data En
 // --- Helper Functions ---
 const getRandomItem = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 
-// --- Slot Machine Component (Keep for Pitch, Tech Stack, Media Tracking) ---
+// --- Slot Machine Component ---
 interface SlotMachineProps {
   options: string[];
   label: string;
@@ -216,10 +220,8 @@ interface SlotMachineProps {
   onChange: (newValue: string) => void;
 }
 
-// ...existing code...
 function SlotMachine({ options, label, value, onChange }: SlotMachineProps) {
   const currentIndex = options.indexOf(value);
-
   const getRandomOption = () => {
     let randomIndex;
     do {
@@ -245,13 +247,10 @@ function SlotMachine({ options, label, value, onChange }: SlotMachineProps) {
   );
 }
 
-// Define a key for localStorage
-const LOCAL_STORAGE_KEY = 'businessPlanGeneratorState';
-
 // Rename component function
 export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: BusinessPlanGeneratorProps) { // Added isTemplate back
-  // --- State ---
-
+  // Define a key for localStorage
+  const LOCAL_STORAGE_KEY = 'businessPlanGeneratorState';
   // State for Pitch (using SlotMachine)
   // ...existing code...
   const [productDescriptor, setProductDescriptor] = useState(getRandomItem(productDescriptors));
@@ -269,7 +268,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   const [marketAction, setMarketAction] = useState(getRandomItem(marketActions));
   const [customPitch, setCustomPitch] = useState('');
 
-
   // State for Tech Stack (using SlotMachine)
   // ...existing code...
   const [projectScale, setProjectScale] = useState(getRandomItem(projectScales));
@@ -280,7 +278,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   const [cloudProvider, setCloudProvider] = useState(getRandomItem(cloudProviders));
   const [testingFramework, setTestingFramework] = useState(getRandomItem(testingFrameworks));
   const [customTechStack, setCustomTechStack] = useState('');
-
 
   // State for Media Tracking (using SlotMachine)
   // ...existing code...
@@ -293,7 +290,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   const [integrationPoint, setIntegrationPoint] = useState(getRandomItem(integrationPoints));
   const [securityFeature, setSecurityFeature] = useState(getRandomItem(securityFeatures));
   const [customMediaTracking, setCustomMediaTracking] = useState('');
-
 
   // State for Marketing Plan (structured data)
   const [marketingPlanData, setMarketingPlanData] = useState<MarketingPlanData>(defaultMarketingPlanData);
@@ -311,13 +307,10 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   const [startupPlanData, setStartupPlanData] = useState<StartupPlanData>(defaultStartupPlanData);
   const [customStartupPlan, setCustomStartupPlan] = useState('');
   const [objectivesPlanData, setObjectivesPlanData] = useState<ObjectivesPlanData>(defaultObjectivesPlanData);
-  const [customObjectivesPlan, setCustomObjectivesPlan] = useState(''); // For custom text override
+  const [customObjectivesPlan, setCustomObjectivesPlan] = useState('');
 
   // General State
   const [activeTab, setActiveTab] = useState('marketing'); // Default to marketing
-
-  // Git Explorer state
-  // ...existing code...
   const [repos, setRepos] = useState<GitRepository[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
@@ -330,11 +323,9 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   const [newDirName, setNewDirName] = useState('');
   const [fileContent, setFileContent] = useState('');
 
-
   // Presets state
   const [presets] = useState<ArtifactPreset[]>([
-    // ... (keep existing presets or update them) ...
-     {
+    {
       id: '1',
       title: 'Marketing Plan',
       description: 'A complete marketing strategy template with pitch, funding, and objectives',
@@ -369,11 +360,10 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
       iconComponent: <FileText className="h-10 w-10 text-violet-500" />,
       content: JSON.stringify({
         // Add default media tracking options if needed
-        mediaTracking: "# Media Tracking System for Wealth Management\n\nA comprehensive compliance document management system...\n\n## Automated Workflow\n\nThe system implements a streamlined workflow...\n\n## Data Model\n\n* Users: Managed through role-based permissions...\n* Compliance Documents: Centralized repository...\n* Settings: Configurable alert thresholds...\n* Analytics: Compliance Health Metrics...\n\n## Integrations\n\nSeamless connectivity with CRM Systems...\n\n## Security & Compliance\n\nOur system implements Two-factor Authentication..."
+        mediaTracking: "# Media Tracking System for Wealth Management\n\nA comprehensive compliance document management system...\n\n## Automated Workflow\n\nThe system implements a streamlined workflow...\n\n## Data Model\n\n* Users: Managed through role-based permissions...\n* Compliance Documents: Centralized repository for ${complianceType}...\n* Settings: Configurable thresholds and ${securityFeature}...\n* Analytics: ${analyticsFeature}...\n\n## Integrations\n\nSeamless connectivity with ${integrationPoint}...\n\n## Security & Compliance\n\nOur system implements ${securityFeature}..."
       })
     }
   ]);
-
 
   // --- LocalStorage Persistence ---
   // Load state from localStorage on initial mount
@@ -409,7 +399,7 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
       startupPlanData,
       objectivesPlanData,
       // Include custom text if you want to persist edits across sessions,
-      // but be mindful this might conflict with loading from artifact
+      // but be mindful this might conflict with loading from artifact,
       // customMarketingPlan,
       // customFundraisingPlan,
       // customBudgetPlan,
@@ -420,7 +410,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
   }, [marketingPlanData, fundraisingPlanData, budgetPlanData, sharesPlanData, startupPlanData, objectivesPlanData /*, custom texts if included */]);
 
-
   // --- Generation Functions ---
 
   // Generate pitch from selected options (using SlotMachine state)
@@ -428,7 +417,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   const generatePitch = () => {
     return `We're building a ${productDescriptor} ${productType} app for ${targetAudience} that solves ${problemSolved} through our ${businessModel}. Our ${revenueModel} model focuses on ${focusArea} with a clear advantage over ${competitorType} through our ${advantage}. Backed by ${fundingType}, our team of ${teamDescriptor} has already achieved ${achievement} as we ${marketAction} the industry.`;
   };
-
 
   // Generate tech stack recommendation (using SlotMachine state)
   // ...existing code...
@@ -441,7 +429,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     return `# Technology Stack\n\n${architectureSection}\n\n${frontendSection}\n\n${backendSection}\n\n${databaseSection}\n\n${deploymentSection}`;
   };
 
-
   // Generate media tracking system content (using SlotMachine state)
   // ...existing code...
   const generateMediaTracking = () => {
@@ -452,7 +439,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     const securitySection = `## Security & Compliance\n\nOur system implements ${securityFeature}...`;
     return `${overviewSection}\n\n${workflowSection}\n\n${dataModelSection}\n\n${integrationSection}\n\n${securitySection}`;
   };
-
 
   // REVISED: generateMarketingPlanText based on structured data
   const generateMarketingPlanText = () => {
@@ -493,7 +479,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     return `${primaryGoal}\n\n${strategy}\n\n${keyAction}\n\n${kpi}`;
   };
 
-
   // --- Random Generation Functions ---
 
   // Generate random pitch (updates SlotMachine state)
@@ -515,7 +500,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     setCustomPitch('');
   };
 
-
   // Generate random tech stack (updates SlotMachine state)
   // ...existing code...
   const generateRandomTechStack = () => {
@@ -528,7 +512,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     setTestingFramework(getRandomItem(testingFrameworks));
     setCustomTechStack('');
   };
-
 
   // Generate random media tracking (updates SlotMachine state)
   // ...existing code...
@@ -543,7 +526,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     setSecurityFeature(getRandomItem(securityFeatures));
     setCustomMediaTracking('');
   };
-
 
   // REVISED: generateRandomMarketingPlan to update structured data
   const generateRandomMarketingPlan = () => {
@@ -592,35 +574,37 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   // NEW: Placeholder random generation functions
   const generateRandomBudgetPlan = () => {
     setBudgetPlanData({
-        revenueProjection: `$${Math.floor(Math.random() * 900 + 100)}K Year 1`,
-        costOfGoodsSold: `${Math.floor(Math.random() * 30 + 10)}%`,
-        operatingExpenses: `$${Math.floor(Math.random() * 100 + 20)}K Year 1`,
-        fundingNeeds: `$${Math.floor(Math.random() * 1000 + 100)}K ${getRandomItem(['Seed', 'Pre-seed', 'Angel'])}`,
+      revenueProjection: `$${Math.floor(Math.random() * 900 + 100)}K Year 1`,
+      costOfGoodsSold: `${Math.floor(Math.random() * 30 + 10)}%`,
+      operatingExpenses: `$${Math.floor(Math.random() * 100 + 20)}K Year 1`,
+      fundingNeeds: `$${Math.floor(Math.random() * 1000 + 100)}K ${getRandomItem(['Seed', 'Pre-seed', 'Angel'])}`,
     });
     setCustomBudgetPlan('');
   };
+
   const generateRandomSharesPlan = () => {
     setSharesPlanData({
-        totalShares: '10,000,000', // Keep total constant for simplicity
-        founderShares: `${Math.floor(Math.random() * 30 + 50)}%`,
-        employeePool: `${Math.floor(Math.random() * 10 + 10)}%`,
-        investorShares: `${Math.floor(Math.random() * 15 + 15)}%`, // Note: percentages might not add up perfectly
+      totalShares: '10,000,000', // Keep total constant for simplicity
+      founderShares: `${Math.floor(Math.random() * 30 + 50)}%`,
+      employeePool: `${Math.floor(Math.random() * 10 + 10)}%`,
+      investorShares: `${Math.floor(Math.random() * 15 + 15)}%`, // Note: percentages might not add up perfectly
     });
     setCustomSharesPlan('');
   };
+
   // REVISED: generateRandomStartupPlan to reset checklist
   const generateRandomStartupPlan = () => {
     setStartupPlanData({
-        companyName: `${getRandomItem(['Quantum', 'Synergy', 'Apex', 'Nova', 'Zenith'])} ${getRandomItem(['Labs', 'Solutions', 'Group', 'Ventures', 'Systems'])} Inc.`,
-        legalStructure: getRandomItem(['Delaware C-Corp', 'LLC', 'S-Corp']),
-        incorporationState: getRandomItem(['Delaware', 'Wyoming', 'Nevada', 'California']),
-        registeredAgent: getRandomItem(['Standard Agent Services', 'CorpNet', 'IncFile Agent']),
-        checklist: { // Reset checklist
-            einObtained: false,
-            bankAccountOpened: false,
-            domainRegistered: false,
-            founderAgreements: false,
-        }
+      companyName: `${getRandomItem(['Quantum', 'Synergy', 'Apex', 'Nova', 'Zenith'])} ${getRandomItem(['Labs', 'Solutions', 'Group', 'Ventures', 'Systems'])} Inc.`,
+      legalStructure: getRandomItem(['Delaware C-Corp', 'LLC', 'S-Corp']),
+      incorporationState: getRandomItem(['Delaware', 'Wyoming', 'Nevada', 'California']),
+      registeredAgent: getRandomItem(['Standard Agent Services', 'CorpNet', 'IncFile Agent']),
+      checklist: { // Reset checklist
+        einObtained: false,
+        bankAccountOpened: false,
+        domainRegistered: false,
+        founderAgreements: false,
+      }
     });
     setCustomStartupPlan('');
   };
@@ -665,6 +649,7 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
       toast.info("Cannot save a template. Create a new artifact from this template first.");
       return;
     }
+
     try {
       const content = {
         // Keep existing sections using SlotMachines
@@ -771,7 +756,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
         if (options.userRole) setUserRole(options.userRole);
         if (options.integrationPoint) setIntegrationPoint(options.integrationPoint);
         if (options.securityFeature) setSecurityFeature(options.securityFeature);
-
       } else {
         // Reset to defaults if artifact content is empty
         setCustomPitch('');
@@ -819,6 +803,7 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
 
   // --- Git Explorer Functions (Keep as is) ---
   // ... createRepository, createFile, createDirectory, findFile, handleFileSelect, saveFileChanges, handleDelete, navigateToDirectory, navigateUp, getCurrentDirectory, renderDirectory ...
+
   // Load GitExplorer data from localStorage
   // ...existing code...
   useEffect(() => {
@@ -834,7 +819,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     }
   }, []);
 
-
   // Save repos to localStorage whenever they change
   // ...existing code...
   useEffect(() => {
@@ -843,7 +827,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     }
   }, [repos]);
 
-
   // Create new repository
   // ...existing code...
   const createRepository = () => {
@@ -851,7 +834,25 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
       toast.error('Repository name cannot be empty');
       return;
     }
-    const newRepo: GitRepository = { /* ... */ id: crypto.randomUUID(), name: newRepoName.trim(), lastModified: new Date().toISOString(), rootDirectory: { id: crypto.randomUUID(), name: 'root', files: [{ id: crypto.randomUUID(), name: 'README.md', content: `# ${newRepoName.trim()}`, lastModified: new Date().toISOString() }], directories: [], lastModified: new Date().toISOString() } };
+    const newRepo: GitRepository = {
+      id: crypto.randomUUID(),
+      name: newRepoName.trim(),
+      lastModified: new Date().toISOString(),
+      rootDirectory: {
+        id: crypto.randomUUID(),
+        name: 'root',
+        files: [
+          {
+            id: crypto.randomUUID(),
+            name: 'README.md',
+            content: `# ${newRepoName.trim()}`,
+            lastModified: new Date().toISOString()
+          }
+        ],
+        directories: [],
+        lastModified: new Date().toISOString()
+      }
+    };
     setRepos([...repos, newRepo]);
     setSelectedRepoId(newRepo.id);
     setSelectedPath([]);
@@ -863,66 +864,221 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   // Create new file
   // ...existing code...
   const createFile = () => {
-    if (!selectedRepoId || !newFileName.trim()) { toast.error('File name cannot be empty'); return; }
-    const newFile: GitFile = { id: crypto.randomUUID(), name: newFileName.trim(), content: '', lastModified: new Date().toISOString() };
-    const findAndUpdateDirectory = (dir: GitDirectory, path: string[]): GitDirectory => { /* ... */ return path.length === 0 ? { ...dir, files: [...dir.files, newFile], lastModified: new Date().toISOString() } : { ...dir, directories: dir.directories.map((d, i) => d.id === path[0] ? findAndUpdateDirectory(d, path.slice(1)) : d), lastModified: new Date().toISOString() }; };
-    setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : { ...repo, rootDirectory: findAndUpdateDirectory(repo.rootDirectory, selectedPath), lastModified: new Date().toISOString() }));
-    setNewFileName(''); setIsNewFileDialogOpen(false); toast.success(`File '${newFileName.trim()}' created`);
+    if (!selectedRepoId || !newFileName.trim()) {
+      toast.error('File name cannot be empty');
+      return;
+    }
+    const newFile: GitFile = {
+      id: crypto.randomUUID(),
+      name: newFileName.trim(),
+      content: '',
+      lastModified: new Date().toISOString()
+    };
+    const findAndUpdateDirectory = (dir: GitDirectory, path: string[]): GitDirectory => {
+      if (path.length === 0) {
+        return {
+          ...dir,
+          files: [...dir.files, newFile],
+          lastModified: new Date().toISOString()
+        };
+      }
+      return {
+        ...dir,
+        directories: dir.directories.map((d, i) => d.id === path[0] ? findAndUpdateDirectory(d, path.slice(1)) : d),
+        lastModified: new Date().toISOString()
+      };
+    };
+    setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : {
+      ...repo,
+      rootDirectory: findAndUpdateDirectory(repo.rootDirectory, selectedPath),
+      lastModified: new Date().toISOString()
+    }));
+    setNewFileName('');
+    setIsNewFileDialogOpen(false);
+    toast.success(`File '${newFileName.trim()}' created`);
   };
 
   // Create new directory
   // ...existing code...
   const createDirectory = () => {
-    if (!selectedRepoId || !newDirName.trim()) { toast.error('Directory name cannot be empty'); return; }
-    const newDir: GitDirectory = { id: crypto.randomUUID(), name: newDirName.trim(), files: [], directories: [], lastModified: new Date().toISOString() };
-    const findAndUpdateDirectory = (dir: GitDirectory, path: string[]): GitDirectory => { /* ... */ return path.length === 0 ? { ...dir, directories: [...dir.directories, newDir], lastModified: new Date().toISOString() } : { ...dir, directories: dir.directories.map((d, i) => d.id === path[0] ? findAndUpdateDirectory(d, path.slice(1)) : d), lastModified: new Date().toISOString() }; };
-    setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : { ...repo, rootDirectory: findAndUpdateDirectory(repo.rootDirectory, selectedPath), lastModified: new Date().toISOString() }));
-    setNewDirName(''); setIsNewDirDialogOpen(false); toast.success(`Directory '${newDirName.trim()}' created`);
+    if (!selectedRepoId || !newDirName.trim()) {
+      toast.error('Directory name cannot be empty');
+      return;
+    }
+    const newDir: GitDirectory = {
+      id: crypto.randomUUID(),
+      name: newDirName.trim(),
+      files: [],
+      directories: [],
+      lastModified: new Date().toISOString()
+    };
+    const findAndUpdateDirectory = (dir: GitDirectory, path: string[]): GitDirectory => {
+      if (path.length === 0) {
+        return {
+          ...dir,
+          directories: [...dir.directories, newDir],
+          lastModified: new Date().toISOString()
+        };
+      }
+      return {
+        ...dir,
+        directories: dir.directories.map((d, i) => d.id === path[0] ? findAndUpdateDirectory(d, path.slice(1)) : d),
+        lastModified: new Date().toISOString()
+      };
+    };
+    setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : {
+      ...repo,
+      rootDirectory: findAndUpdateDirectory(repo.rootDirectory, selectedPath),
+      lastModified: new Date().toISOString()
+    }));
+    setNewDirName('');
+    setIsNewDirDialogOpen(false);
+    toast.success(`Directory '${newDirName.trim()}' created`);
   };
 
-   // Find file by path
+  // Find file by path
   // ...existing code...
   const findFile = (repo: GitRepository, fileId: string): GitFile | null => {
     let result: GitFile | null = null;
-    const searchDirectory = (dir: GitDirectory) => { /* ... */ dir.files.forEach(f => { if (f.id === fileId) result = f; }); if (result) return; dir.directories.forEach(d => { searchDirectory(d); if (result) return; }); };
-    searchDirectory(repo.rootDirectory); return result;
+    const searchDirectory = (dir: GitDirectory) => {
+      dir.files.forEach(f => {
+        if (f.id === fileId) result = f;
+      });
+      if (result) return;
+      dir.directories.forEach(d => {
+        searchDirectory(d);
+        if (result) return;
+      });
+    };
+    searchDirectory(repo.rootDirectory);
+    return result;
   };
 
   // Handle file selection
   // ...existing code...
   const handleFileSelect = (fileId: string) => {
-    const currentRepo = repos.find(repo => repo.id === selectedRepoId); if (!currentRepo) return;
-    const file = findFile(currentRepo, fileId); if (file) { setSelectedFile(file); setFileContent(file.content); }
+    const currentRepo = repos.find(repo => repo.id === selectedRepoId);
+    if (!currentRepo) return;
+    const file = findFile(currentRepo, fileId);
+    if (file) {
+      setSelectedFile(file);
+      setFileContent(file.content);
+    }
   };
 
   // Save file changes
   // ...existing code...
   const saveFileChanges = () => {
     if (!selectedFile || !selectedRepoId) return;
-    const updateFileInDirectory = (dir: GitDirectory, fileId: string): GitDirectory => { /* ... */ const fileIndex = dir.files.findIndex(f => f.id === fileId); if (fileIndex !== -1) { const updatedFiles = [...dir.files]; updatedFiles[fileIndex] = { ...dir.files[fileIndex], content: fileContent, lastModified: new Date().toISOString() }; return { ...dir, files: updatedFiles, lastModified: new Date().toISOString() }; } return { ...dir, directories: dir.directories.map(subDir => updateFileInDirectory(subDir, fileId)), lastModified: new Date().toISOString() }; };
-    setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : { ...repo, rootDirectory: updateFileInDirectory(repo.rootDirectory, selectedFile.id), lastModified: new Date().toISOString() }));
-    setSelectedFile(prev => prev ? { ...prev, content: fileContent, lastModified: new Date().toISOString() } : null); toast.success(`File '${selectedFile.name}' saved`);
+    const updateFileInDirectory = (dir: GitDirectory, fileId: string): GitDirectory => {
+      const fileIndex = dir.files.findIndex(f => f.id === fileId);
+      if (fileIndex !== -1) {
+        const updatedFiles = [...dir.files];
+        updatedFiles[fileIndex] = {
+          ...dir.files[fileIndex],
+          content: fileContent,
+          lastModified: new Date().toISOString()
+        };
+        return {
+          ...dir,
+          files: updatedFiles,
+          lastModified: new Date().toISOString()
+        };
+      }
+      return {
+        ...dir,
+        directories: dir.directories.map(subDir => updateFileInDirectory(subDir, fileId)),
+        lastModified: new Date().toISOString()
+      };
+    };
+    setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : {
+      ...repo,
+      rootDirectory: updateFileInDirectory(repo.rootDirectory, selectedFile.id),
+      lastModified: new Date().toISOString()
+    }));
+    setSelectedFile(prev => prev ? {
+      ...prev,
+      content: fileContent,
+      lastModified: new Date().toISOString()
+    } : null);
+    toast.success(`File '${selectedFile.name}' saved`);
   };
 
   // Delete file or directory
   // ...existing code...
   const handleDelete = (itemId: string, isDirectory: boolean) => {
-    const deleteFromDirectory = (dir: GitDirectory, id: string, isDir: boolean): GitDirectory => { /* ... */ return isDir ? { ...dir, directories: dir.directories.filter(d => d.id !== id), lastModified: new Date().toISOString() } : { ...dir, files: dir.files.filter(f => f.id !== id), lastModified: new Date().toISOString() }; };
-    const findAndDeleteFromDirectory = (dir: GitDirectory, path: string[]): GitDirectory => { /* ... */ if (path.length === 0) return deleteFromDirectory(dir, itemId, isDirectory); const [currentDirId, ...rest] = path; return { ...dir, directories: dir.directories.map(d => d.id === currentDirId ? findAndDeleteFromDirectory(d, rest) : d), lastModified: new Date().toISOString() }; };
-    if (selectedRepoId) { setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : { ...repo, rootDirectory: findAndDeleteFromDirectory(repo.rootDirectory, selectedPath), lastModified: new Date().toISOString() })); if (selectedFile?.id === itemId) { setSelectedFile(null); setFileContent(''); } toast.success(`${isDirectory ? 'Directory' : 'File'} deleted`); }
+    const deleteFromDirectory = (dir: GitDirectory, id: string, isDir: boolean): GitDirectory => {
+      if (isDir) {
+        return {
+          ...dir,
+          directories: dir.directories.filter(d => d.id !== id),
+          lastModified: new Date().toISOString()
+        };
+      }
+      return {
+        ...dir,
+        files: dir.files.filter(f => f.id !== id),
+        lastModified: new Date().toISOString()
+      };
+    };
+    const findAndDeleteFromDirectory = (dir: GitDirectory, path: string[]): GitDirectory => {
+      if (path.length === 0) {
+        return deleteFromDirectory(dir, itemId, isDirectory);
+      }
+      const [currentDirId, ...rest] = path;
+      return {
+        ...dir,
+        directories: dir.directories.map(d => d.id === currentDirId ? findAndDeleteFromDirectory(d, rest) : d),
+        lastModified: new Date().toISOString()
+      };
+    };
+    if (selectedRepoId) {
+      setRepos(repos.map(repo => repo.id !== selectedRepoId ? repo : {
+        ...repo,
+        rootDirectory: findAndDeleteFromDirectory(repo.rootDirectory, selectedPath),
+        lastModified: new Date().toISOString()
+      }));
+      if (selectedFile?.id === itemId) {
+        setSelectedFile(null);
+        setFileContent('');
+      }
+      toast.success(`${isDirectory ? 'Directory' : 'File'} deleted`);
+    }
   };
 
   // Go to directory
   // ...existing code...
-  const navigateToDirectory = (dirId: string) => { setSelectedPath([...selectedPath, dirId]); setSelectedFile(null); setFileContent(''); };
+  const navigateToDirectory = (dirId: string) => {
+    setSelectedPath([...selectedPath, dirId]);
+    setSelectedFile(null);
+    setFileContent('');
+  };
 
   // Go up one level
   // ...existing code...
-  const navigateUp = () => { if (selectedPath.length === 0) { setSelectedRepoId(null); } else { setSelectedPath(selectedPath.slice(0, -1)); } setSelectedFile(null); setFileContent(''); };
+  const navigateUp = () => {
+    if (selectedPath.length === 0) {
+      setSelectedRepoId(null);
+    } else {
+      setSelectedPath(selectedPath.slice(0, -1));
+    }
+    setSelectedFile(null);
+    setFileContent('');
+  };
 
   // Get current directory
   // ...existing code...
-  const getCurrentDirectory = (): GitDirectory | null => { const repo = repos.find(r => r.id === selectedRepoId); if (!repo) return null; let currentDir = repo.rootDirectory; for (const dirId of selectedPath) { const nextDir = currentDir.directories.find(d => d.id === dirId); if (!nextDir) return null; currentDir = nextDir; } return currentDir; };
+  const getCurrentDirectory = (): GitDirectory | null => {
+    const repo = repos.find(r => r.id === selectedRepoId);
+    if (!repo) return null;
+    let currentDir = repo.rootDirectory;
+    for (const dirId of selectedPath) {
+      const nextDir = currentDir.directories.find(d => d.id === dirId);
+      if (!nextDir) return null;
+      currentDir = nextDir;
+    }
+    return currentDir;
+  };
 
   // File explorer component
   // ...existing code...
@@ -962,8 +1118,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
     );
   };
 
-
-
   // --- Preset Application ---
   const applyPreset = (preset: ArtifactPreset) => {
     try {
@@ -984,8 +1138,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
       if (presetContent.objectivesPlanText) setCustomObjectivesPlan(presetContent.objectivesPlanText);
       if (presetContent.techStack) setCustomTechStack(presetContent.techStack);
       if (presetContent.mediaTracking) setCustomMediaTracking(presetContent.mediaTracking);
-      // Add logic for SlotMachine options if presets include them
-
       toast.success(`Applied '${preset.title}' preset`);
       // Navigate to relevant tab based on preset type
       if (preset.type === 'marketing') setActiveTab('marketing');
@@ -997,13 +1149,11 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
       else if (preset.type === 'technical') setActiveTab('techstack');
       else if (preset.type === 'system') setActiveTab('mediatracking');
       else setActiveTab('pitch'); // Default fallback
-
     } catch (error) {
       console.error("Failed to apply preset:", error);
       toast.error("Failed to apply preset");
     }
   };
-
 
   // --- Input Handlers ---
   const handleMarketingDataChange = (field: keyof MarketingPlanData, value: string) => {
@@ -1030,20 +1180,19 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
   };
 
   const handleStartupDataChange = (field: keyof Omit<StartupPlanData, 'checklist'>, value: string) => {
-     setStartupPlanData(prev => ({ ...prev, [field]: value }));
-   };
+    setStartupPlanData(prev => ({ ...prev, [field]: value }));
+  };
 
-   const handleStartupChecklistChange = (field: keyof StartupPlanData['checklist'], checked: boolean) => {
-     setStartupPlanData(prev => ({
-       ...prev,
-       checklist: { ...prev.checklist, [field]: checked }
-     }));
-   };
+  const handleStartupChecklistChange = (field: keyof StartupPlanData['checklist'], checked: boolean) => {
+    setStartupPlanData(prev => ({
+      ...prev,
+      checklist: { ...prev.checklist, [field]: checked }
+    }));
+  };
 
   const handleObjectivesDataChange = (field: keyof ObjectivesPlanData, value: string) => {
     setObjectivesPlanData(prev => ({ ...prev, [field]: value }));
   };
-
 
   // --- Render ---
   return (
@@ -1063,7 +1212,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
         </Button>
       </div>
 
-
       <div className="flex-grow p-4 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-4 flex-wrap h-auto justify-start">
@@ -1076,11 +1224,12 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             <TabsTrigger value="budget"><DollarSign className="w-4 h-4 mr-1" />Budget</TabsTrigger>
             <TabsTrigger value="shares"><PieChart className="w-4 h-4 mr-1" />Shares</TabsTrigger>
             <TabsTrigger value="startup"><Building className="w-4 h-4 mr-1" />Startup</TabsTrigger>
-            {/* Keep other existing tabs */}
             <TabsTrigger value="objectives"><Target className="w-4 h-4 mr-1" />Objectives</TabsTrigger> {/* Added Icon */}
             <TabsTrigger value="techstack">Tech Stack</TabsTrigger>
             <TabsTrigger value="mediatracking">Media Tracking</TabsTrigger>
             <TabsTrigger value="git">Git Explorer</TabsTrigger>
+            <TabsTrigger value="corporation"><Building className="w-4 h-4 mr-1" />Corporation Setup</TabsTrigger>
+            <TabsTrigger value="termsheet"><FileText className="w-4 h-4 mr-1" />Term Sheet</TabsTrigger>
           </TabsList>
 
           {/* Presets Tab */}
@@ -1112,7 +1261,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
               </CardContent>
             </Card>
           </TabsContent>
-
 
           {/* Pitch Tab (Uses SlotMachine) */}
           <TabsContent value="pitch" className="space-y-4">
@@ -1148,23 +1296,22 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             <Card>
               <CardHeader><CardTitle>Pitch Parameters</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-                  <SlotMachine options={productDescriptors} label="Product Descriptor" value={productDescriptor} onChange={setProductDescriptor} />
-                  <SlotMachine options={productTypes} label="Product Type" value={productType} onChange={setProductType} />
-                  <SlotMachine options={targetAudiences} label="Target Audience" value={targetAudience} onChange={setTargetAudience} />
-                  <SlotMachine options={problemsSolved} label="Problem Solved" value={problemSolved} onChange={setProblemSolved} />
-                  <SlotMachine options={businessModels} label="Business Model" value={businessModel} onChange={setBusinessModel} />
-                  <SlotMachine options={revenueModels} label="Revenue Model" value={revenueModel} onChange={setRevenueModel} />
-                  <SlotMachine options={focusAreas} label="Focus Area" value={focusArea} onChange={setFocusArea} />
-                  <SlotMachine options={competitorTypes} label="Competitor Type" value={competitorType} onChange={setCompetitorType} />
-                  <SlotMachine options={advantages} label="Advantage" value={advantage} onChange={setAdvantage} />
-                  <SlotMachine options={fundingTypes} label="Funding Type" value={fundingType} onChange={setFundingType} />
-                  <SlotMachine options={teamDescriptors} label="Team Descriptor" value={teamDescriptor} onChange={setTeamDescriptor} />
-                  <SlotMachine options={achievements} label="Achievement" value={achievement} onChange={setAchievement} />
-                  <SlotMachine options={marketActions} label="Market Action" value={marketAction} onChange={setMarketAction} />
+                <SlotMachine options={productDescriptors} label="Product Descriptor" value={productDescriptor} onChange={setProductDescriptor} />
+                <SlotMachine options={productTypes} label="Product Type" value={productType} onChange={setProductType} />
+                <SlotMachine options={targetAudiences} label="Target Audience" value={targetAudience} onChange={setTargetAudience} />
+                <SlotMachine options={problemsSolved} label="Problem Solved" value={problemSolved} onChange={setProblemSolved} />
+                <SlotMachine options={businessModels} label="Business Model" value={businessModel} onChange={setBusinessModel} />
+                <SlotMachine options={revenueModels} label="Revenue Model" value={revenueModel} onChange={setRevenueModel} />
+                <SlotMachine options={focusAreas} label="Focus Area" value={focusArea} onChange={setFocusArea} />
+                <SlotMachine options={competitorTypes} label="Competitor Type" value={competitorType} onChange={setCompetitorType} />
+                <SlotMachine options={advantages} label="Advantage" value={advantage} onChange={setAdvantage} />
+                <SlotMachine options={fundingTypes} label="Funding Type" value={fundingType} onChange={setFundingType} />
+                <SlotMachine options={teamDescriptors} label="Team Descriptor" value={teamDescriptor} onChange={setTeamDescriptor} />
+                <SlotMachine options={achievements} label="Achievement" value={achievement} onChange={setAchievement} />
+                <SlotMachine options={marketActions} label="Market Action" value={marketAction} onChange={setMarketAction} />
               </CardContent>
             </Card>
           </TabsContent>
-
 
           {/* REVISED: Marketing Plan Tab (Uses Inputs) */}
           <TabsContent value="marketing" className="space-y-4">
@@ -1193,9 +1340,7 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             {customMarketingPlan && (
               <Card>
                 <CardHeader><CardTitle>Custom Marketing Plan</CardTitle></CardHeader>
-                <CardContent>
-                  <Textarea value={customMarketingPlan} onChange={(e) => setCustomMarketingPlan(e.target.value)} placeholder="Edit marketing plan..." rows={5} />
-                </CardContent>
+                <CardContent><Textarea value={customMarketingPlan} onChange={(e) => setCustomMarketingPlan(e.target.value)} placeholder="Edit marketing plan..." rows={5} /></CardContent>
                 <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomMarketingPlan('')}>Clear</Button></CardFooter>
               </Card>
             )}
@@ -1239,9 +1384,7 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             {customFundraisingPlan && (
               <Card>
                 <CardHeader><CardTitle>Custom Fundraising Plan</CardTitle></CardHeader>
-                <CardContent>
-                  <Textarea value={customFundraisingPlan} onChange={(e) => setCustomFundraisingPlan(e.target.value)} placeholder="Edit fundraising plan..." rows={5} />
-                </CardContent>
+                <CardContent><Textarea value={customFundraisingPlan} onChange={(e) => setCustomFundraisingPlan(e.target.value)} placeholder="Edit fundraising plan..." rows={5} /></CardContent>
                 <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomFundraisingPlan('')}>Clear</Button></CardFooter>
               </Card>
             )}
@@ -1305,9 +1448,7 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             {customBudgetPlan && (
               <Card>
                 <CardHeader><CardTitle>Custom Budget Plan</CardTitle></CardHeader>
-                <CardContent>
-                  <Textarea value={customBudgetPlan} onChange={(e) => setCustomBudgetPlan(e.target.value)} placeholder="Edit budget plan..." rows={5} />
-                </CardContent>
+                <CardContent><Textarea value={customBudgetPlan} onChange={(e) => setCustomBudgetPlan(e.target.value)} placeholder="Edit budget plan..." rows={5} /></CardContent>
                 <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomBudgetPlan('')}>Clear</Button></CardFooter>
               </Card>
             )}
@@ -1346,12 +1487,10 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
                 </Button>
               </CardFooter>
             </Card>
-             {customSharesPlan && (
+            {customSharesPlan && (
               <Card>
                 <CardHeader><CardTitle>Custom Shares Plan</CardTitle></CardHeader>
-                <CardContent>
-                  <Textarea value={customSharesPlan} onChange={(e) => setCustomSharesPlan(e.target.value)} placeholder="Edit shares plan..." rows={5} />
-                </CardContent>
+                <CardContent><Textarea value={customSharesPlan} onChange={(e) => setCustomSharesPlan(e.target.value)} placeholder="Edit shares plan..." rows={5} /></CardContent>
                 <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomSharesPlan('')}>Clear</Button></CardFooter>
               </Card>
             )}
@@ -1390,12 +1529,10 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
                 </Button>
               </CardFooter>
             </Card>
-             {customStartupPlan && (
+            {customStartupPlan && (
               <Card>
                 <CardHeader><CardTitle>Custom Startup Plan</CardTitle></CardHeader>
-                <CardContent>
-                  <Textarea value={customStartupPlan} onChange={(e) => setCustomStartupPlan(e.target.value)} placeholder="Edit startup plan..." rows={5} />
-                </CardContent>
+                <CardContent><Textarea value={customStartupPlan} onChange={(e) => setCustomStartupPlan(e.target.value)} placeholder="Edit startup plan..." rows={5} /></CardContent>
                 <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomStartupPlan('')}>Clear</Button></CardFooter>
               </Card>
             )}
@@ -1457,51 +1594,17 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             </Card>
             {customObjectivesPlan && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Custom Objectives</CardTitle>
-                  <CardDescription>Edit your project objectives</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Textarea value={customObjectivesPlan} onChange={(e) => setCustomObjectivesPlan(e.target.value)} placeholder="Edit your objectives here..." rows={8} />
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                  <Button variant="outline" onClick={() => setCustomObjectivesPlan('')}>Clear</Button>
-                </CardFooter>
+                <CardHeader><CardTitle>Custom Objectives</CardTitle></CardHeader>
+                <CardContent><Textarea value={customObjectivesPlan} onChange={(e) => setCustomObjectivesPlan(e.target.value)} placeholder="Edit your objectives here..." rows={8} /></CardContent>
+                <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomObjectivesPlan('')}>Clear</Button></CardFooter>
               </Card>
             )}
             <Card>
-              <CardHeader>
-                <CardTitle>Objectives Parameters</CardTitle>
-                <CardDescription>Adjust the parameters to customize your project objectives</CardDescription>
-              </CardHeader>
+              <CardHeader><CardTitle>Objectives Parameters</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4 bg-muted/50">
-                  <h3 className="font-medium flex items-center mb-3"><Target className="w-4 h-4 mr-2 text-primary" /> Primary Goal</h3>
-                  <div className="space-y-2">
-                    <div className="space-y-1"><Label htmlFor="obj-goalVerb">Action</Label><Input id="obj-goalVerb" value={objectivesPlanData.goalVerb} onChange={(e) => handleObjectivesDataChange('goalVerb', e.target.value)} /></div>
-                    <div className="space-y-1"><Label htmlFor="obj-goalMetric">Metric</Label><Input id="obj-goalMetric" value={objectivesPlanData.goalMetric} onChange={(e) => handleObjectivesDataChange('goalMetric', e.target.value)} /></div>
-                    <div className="space-y-1"><Label htmlFor="obj-goalTarget">Target</Label><Input id="obj-goalTarget" value={objectivesPlanData.goalTarget} onChange={(e) => handleObjectivesDataChange('goalTarget', e.target.value)} /></div>
-                    <div className="space-y-1"><Label htmlFor="obj-timeframe">Timeframe</Label><Input id="obj-timeframe" value={objectivesPlanData.timeframe} onChange={(e) => handleObjectivesDataChange('timeframe', e.target.value)} /></div>
-                  </div>
-                </Card>
-                <Card className="p-4 bg-muted/50">
-                  <h3 className="font-medium flex items-center mb-3"><Zap className="w-4 h-4 mr-2 text-primary" /> Strategy & Action</h3>
-                  <div className="space-y-2">
-                    <div className="space-y-1"><Label htmlFor="obj-objectiveArea">Focus Area</Label><Input id="obj-objectiveArea" value={objectivesPlanData.objectiveArea} onChange={(e) => handleObjectivesDataChange('objectiveArea', e.target.value)} /></div>
-                    <div className="space-y-1"><Label htmlFor="obj-growthStrategy">Growth Strategy</Label><Input id="obj-growthStrategy" value={objectivesPlanData.growthStrategy} onChange={(e) => handleObjectivesDataChange('growthStrategy', e.target.value)} /></div>
-                    <div className="space-y-1"><Label htmlFor="obj-actionVerb">Action Verb</Label><Input id="obj-actionVerb" value={objectivesPlanData.actionVerb} onChange={(e) => handleObjectivesDataChange('actionVerb', e.target.value)} /></div>
-                    <div className="space-y-1"><Label htmlFor="obj-actionTarget">Deliverable</Label><Input id="obj-actionTarget" value={objectivesPlanData.actionTarget} onChange={(e) => handleObjectivesDataChange('actionTarget', e.target.value)} /></div>
-                  </div>
-                </Card>
-                <Card className="p-4 bg-muted/50">
-                  <h3 className="font-medium flex items-center mb-3"><ArrowUpRight className="w-4 h-4 mr-2 text-primary" /> Tracking & KPIs</h3>
-                  <div className="space-y-2">
-                    <div className="space-y-1"><Label htmlFor="obj-kpiMetric">Key Metric</Label><Input id="obj-kpiMetric" value={objectivesPlanData.kpiMetric} onChange={(e) => handleObjectivesDataChange('kpiMetric', e.target.value)} /></div>
-                    <div className="h-[136px] flex items-center justify-center text-muted-foreground text-sm">
-                        (More KPI options can be added here)
-                    </div>
-                  </div>
-                </Card>
+                <Card className="p-4 bg-muted/50"><h3 className="font-medium flex items-center mb-3"><Target className="w-4 h-4 mr-2 text-primary" /> Primary Goal</h3><div className="space-y-2"><SlotMachine options={goalVerbs} label="Action" value={objectivesPlanData.goalVerb} onChange={setGoalVerb} /><SlotMachine options={goalMetrics} label="Metric" value={objectivesPlanData.goalMetric} onChange={setGoalMetric} /><SlotMachine options={goalTargets} label="Target" value={objectivesPlanData.goalTarget} onChange={setGoalTarget} /><SlotMachine options={timeframes} label="Timeframe" value={objectivesPlanData.timeframe} onChange={setTimeframe} /></div></Card>
+                <Card className="p-4 bg-muted/50"><h3 className="font-medium flex items-center mb-3"><Zap className="w-4 h-4 mr-2 text-primary" /> Strategy & Action</h3><div className="space-y-2"><SlotMachine options={objectiveAreas} label="Focus Area" value={objectivesPlanData.objectiveArea} onChange={setObjectiveArea} /><SlotMachine options={growthStrategies} label="Growth Strategy" value={objectivesPlanData.growthStrategy} onChange={setGrowthStrategy} /><SlotMachine options={actionVerbs} label="Action Verb" value={objectivesPlanData.actionVerb} onChange={setActionVerb} /><SlotMachine options={actionTargets} label="Deliverable" value={objectivesPlanData.actionTarget} onChange={setActionTarget} /></div></Card>
+                <Card className="p-4 bg-muted/50"><h3 className="font-medium flex items-center mb-3"><ArrowUpRight className="w-4 h-4 mr-2 text-primary" /> Tracking & KPIs</h3><div className="space-y-2"><SlotMachine options={kpiMetrics} label="Key Metric" value={objectivesPlanData.kpiMetric} onChange={setKpiMetric} /></div></Card>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1509,11 +1612,34 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
           {/* Tech Stack Tab (Uses SlotMachine) */}
           <TabsContent value="techstack" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle>Technology Stack</CardTitle><CardDescription>Generated technology recommendations</CardDescription></CardHeader>
-              <CardContent><div className="bg-muted p-4 rounded-md relative group"><pre className="whitespace-pre-wrap font-sans text-sm">{customTechStack || generatedTechStack}</pre><Button size="sm" variant="ghost" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyToClipboard(customTechStack || generatedTechStack)}><Copy className="h-4 w-4" /></Button></div></CardContent>
-              <CardFooter className="flex justify-between"><Button variant="outline" onClick={generateRandomTechStack}><Shuffle className="w-4 h-4 mr-2" /> Random</Button><Button variant="outline" onClick={() => setCustomTechStack(generatedTechStack)} disabled={!!customTechStack}><ArrowRight className="w-4 h-4 mr-2" /> Template</Button></CardFooter>
+              <CardHeader>
+                <CardTitle>Technology Stack</CardTitle>
+                <CardDescription>Generated technology recommendations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted p-4 rounded-md relative group">
+                  <pre className="whitespace-pre-wrap font-sans text-sm">{customTechStack || generatedTechStack}</pre>
+                  <Button size="sm" variant="ghost" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyToClipboard(customTechStack || generatedTechStack)}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <Button variant="outline" onClick={generateRandomTechStack}>
+                  <Shuffle className="w-4 h-4 mr-2" /> Generate Random
+                </Button>
+                <Button variant="outline" onClick={() => setCustomTechStack(generatedTechStack)} disabled={!!customTechStack}>
+                  <ArrowRight className="w-4 h-4 mr-2" /> Use as Template
+                </Button>
+              </CardFooter>
             </Card>
-            {customTechStack && (<Card><CardHeader><CardTitle>Custom Tech Stack</CardTitle></CardHeader><CardContent><Textarea value={customTechStack} onChange={(e) => setCustomTechStack(e.target.value)} placeholder="Edit tech stack..." rows={10} /></CardContent><CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomTechStack('')}>Clear</Button></CardFooter></Card>)}
+            {customTechStack && (
+              <Card>
+                <CardHeader><CardTitle>Custom Tech Stack</CardTitle></CardHeader>
+                <CardContent><Textarea value={customTechStack} onChange={(e) => setCustomTechStack(e.target.value)} placeholder="Edit tech stack..." rows={10} /></CardContent>
+                <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomTechStack('')}>Clear</Button></CardFooter>
+              </Card>
+            )}
             <Card>
               <CardHeader><CardTitle>Technology Parameters</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1525,15 +1651,37 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             </Card>
           </TabsContent>
 
-
           {/* Media Tracking Tab (Uses SlotMachine) */}
           <TabsContent value="mediatracking" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle>Media Tracking System</CardTitle><CardDescription>Generated specifications</CardDescription></CardHeader>
-              <CardContent><div className="bg-muted p-4 rounded-md relative group"><pre className="whitespace-pre-wrap font-sans text-sm">{customMediaTracking || generatedMediaTracking}</pre><Button size="sm" variant="ghost" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyToClipboard(customMediaTracking || generatedMediaTracking)}><Copy className="h-4 w-4" /></Button></div></CardContent>
-              <CardFooter className="flex justify-between"><Button variant="outline" onClick={generateRandomMediaTracking}><Shuffle className="w-4 h-4 mr-2" /> Random</Button><Button variant="outline" onClick={() => setCustomMediaTracking(generatedMediaTracking)} disabled={!!customMediaTracking}><ArrowRight className="w-4 h-4 mr-2" /> Template</Button></CardFooter>
+              <CardHeader>
+                <CardTitle>Media Tracking System</CardTitle>
+                <CardDescription>Generated specifications</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted p-4 rounded-md relative group">
+                  <pre className="whitespace-pre-wrap font-sans text-sm">{customMediaTracking || generatedMediaTracking}</pre>
+                  <Button size="sm" variant="ghost" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyToClipboard(customMediaTracking || generatedMediaTracking)}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <Button variant="outline" onClick={generateRandomMediaTracking}>
+                  <Shuffle className="w-4 h-4 mr-2" /> Generate Random
+                </Button>
+                <Button variant="outline" onClick={() => setCustomMediaTracking(generatedMediaTracking)} disabled={!!customMediaTracking}>
+                  <ArrowRight className="w-4 h-4 mr-2" /> Use as Template
+                </Button>
+              </CardFooter>
             </Card>
-            {customMediaTracking && (<Card><CardHeader><CardTitle>Custom Media Tracking System</CardTitle></CardHeader><CardContent><Textarea value={customMediaTracking} onChange={(e) => setCustomMediaTracking(e.target.value)} placeholder="Edit media tracking system..." rows={12} /></CardContent><CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomMediaTracking('')}>Clear</Button></CardFooter></Card>)}
+            {customMediaTracking && (
+              <Card>
+                <CardHeader><CardTitle>Custom Media Tracking System</CardTitle></CardHeader>
+                <CardContent><Textarea value={customMediaTracking} onChange={(e) => setCustomMediaTracking(e.target.value)} placeholder="Edit media tracking system..." rows={12} /></CardContent>
+                <CardFooter className="flex justify-end"><Button variant="outline" onClick={() => setCustomMediaTracking('')}>Clear</Button></CardFooter>
+              </Card>
+            )}
             <Card>
               <CardHeader><CardTitle>Media Tracking Parameters</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1543,7 +1691,6 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
               </CardContent>
             </Card>
           </TabsContent>
-
 
           {/* Git Explorer Tab */}
           <TabsContent value="git" className="space-y-4">
@@ -1570,6 +1717,62 @@ export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: 
             </Card>
           </TabsContent>
 
+          {/* Corporation Setup Tab */}
+          <TabsContent value="corporation" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{corporationSetupGuide.title}</CardTitle>
+                <CardDescription>Follow these steps to set up your corporation properly</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {corporationSetupGuide.steps.map((step, index) => (
+                  <div key={index} className="space-y-2">
+                    <h3 className="text-lg font-medium flex items-center">
+                      <Badge variant="outline" className="mr-2">{index + 1}</Badge>
+                      {step.title}
+                    </h3>
+                    <div className="prose prose-sm max-w-none">
+                      <ReactMarkdown>{step.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Term Sheet Tab */}
+          <TabsContent value="termsheet" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{termSheetGuide.title}</CardTitle>
+                <CardDescription>Understanding and negotiating investor term sheets</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {termSheetGuide.sections.map((section, index) => (
+                  <div key={index} className="space-y-3">
+                    <h3 className="text-lg font-medium">{section.title}</h3>
+                    {section.content && (
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown>{section.content}</ReactMarkdown>
+                      </div>
+                    )}
+                    {section.subsections && section.subsections.map((subsection, subIndex) => (
+                      <div key={subIndex} className="mt-4 space-y-2">
+                        <h4 className="font-medium text-base">{subsection.title}</h4>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {subsection.items.map((item, itemIndex) => (
+                            <li key={itemIndex} className="prose-sm">
+                              <ReactMarkdown>{item}</ReactMarkdown>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
@@ -1581,16 +1784,3 @@ interface GitFile { id: string; name: string; content: string; lastModified: str
 interface GitDirectory { id: string; name: string; files: GitFile[]; directories: GitDirectory[]; lastModified: string; }
 interface GitRepository { id: string; name: string; rootDirectory: GitDirectory; lastModified: string; }
 interface ArtifactPreset { id: string; title: string; description: string; type: string; iconComponent: React.ReactNode; content: string; }
-
-// --- Progress Report ---
-// MVP Status: ~90%
-// - Core Slot Machines: Implemented (Pitch, Tech, Media). Chaining is optional/future.
-// - Dashboard Tabs: Marketing, Fundraising, Budget, Shares, Startup, Objectives tabs added and functional with structured data + text generation/editing.
-// - Git Explorer: Implemented with localStorage. Commit/Diff is optional/future.
-// - Artifacts Page/Samples: Handled in Dashboard.tsx.
-// - Sprints Modal: Integrated. Markdown preview/autofill are optional/future.
-// - localStorage: Implemented for structured data in new tabs.
-// - Framer Motion: Assumed existing usage.
-// - Tab Component Generator: Not implemented (refactored existing).
-// - Schemas: Interfaces and defaults align with provided schemas.
-// Next Steps: Final UI/UX polish, testing, address optional features (Sprint autofill, Git diff, Slot chaining).

@@ -320,6 +320,88 @@ class DBService {
     return result;
   }
 
+  async moveArtifactToFolder(artifactId: string, folderId: string): Promise<ArtifactData | null> {
+    const artifact = this.artifacts.get(artifactId);
+    if (!artifact) return null;
+    
+    artifact.folderId = folderId;
+    artifact.updatedAt = new Date().toISOString();
+    this.artifacts.set(artifactId, artifact);
+    await this.persist();
+    return artifact;
+  }
+
+  async shareFolder(folderId: string, userIdsToShare: string[]): Promise<FolderData | null> {
+    const folder = this.folders.get(folderId);
+    if (!folder) return null;
+    
+    folder.isShared = true;
+    folder.sharedWith = [...new Set([...folder.sharedWith, ...userIdsToShare])];
+    folder.updatedAt = new Date().toISOString();
+    this.folders.set(folderId, folder);
+    await this.persist();
+    return folder;
+  }
+
+  // Enhanced folder methods
+  async getFolderWithContents(folderId: string): Promise<{folder: FolderData, artifacts: ArtifactData[]}> {
+    const folder = await this.getFolder(folderId);
+    if (!folder) return { folder: null, artifacts: [] };
+    
+    const artifacts = await this.getArtifactsByFolder(folderId);
+    return { folder, artifacts };
+  }
+
+  async moveArtifactsToFolder(artifactIds: string[], folderId: string): Promise<boolean> {
+    try {
+      for (const id of artifactIds) {
+        const artifact = this.artifacts.get(id);
+        if (artifact) {
+          artifact.folderId = folderId;
+          artifact.updatedAt = new Date().toISOString();
+          this.artifacts.set(id, artifact);
+        }
+      }
+      await this.persist();
+      return true;
+    } catch (error) {
+      console.error('Failed to move artifacts:', error);
+      return false;
+    }
+  }
+
+  async shareFolderWithUsers(folderId: string, userEmails: string[]): Promise<string[]> {
+    const folder = this.folders.get(folderId);
+    if (!folder) return [];
+    
+    const sharedWith: string[] = [];
+    for (const email of userEmails) {
+      const user = await this.getUserByEmail(email);
+      if (user) {
+        // Create a folder reference for the recipient
+        const sharedFolder: FolderData = {
+          id: crypto.randomUUID(),
+          userId: user.id,
+          name: `Shared: ${folder.name}`,
+          parentId: null,
+          isShared: true,
+          sharedWith: [],
+          originalFolderId: folderId, // Reference to original
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        this.folders.set(sharedFolder.id, sharedFolder);
+        sharedWith.push(user.id);
+      }
+    }
+    
+    folder.sharedWith = [...new Set([...folder.sharedWith, ...sharedWith])];
+    this.folders.set(folderId, folder);
+    await this.persist();
+    
+    return sharedWith;
+  }
+
   // Project Operations
   async createProject(projectData: Omit<ProjectData, 'id' | 'createdAt' | 'updatedAt'>): Promise<ProjectData> {
     const project: ProjectData = {
@@ -389,6 +471,40 @@ class DBService {
     } catch (error) {
       console.error('Error loading data:', error);
     }
+  }
+
+  // Add these methods to your dbService
+  async getFoldersByParent(userId: string, parentFolderId?: string): Promise<FolderData[]> {
+    // Implementation to fetch folders with the given parentFolderId
+    return Array.from(this.folders.values()).filter(folder => folder.userId === userId && folder.parentId === parentFolderId);
+  }
+
+  async createFolder(folderData: Partial<FolderData>): Promise<FolderData> {
+    // Implementation to create a new folder
+    const folder: FolderData = {
+      ...folderData,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.folders.set(folder.id, folder);
+    await this.persist();
+    return folder;
+  }
+
+  async shareFolderByEmail(folderId: string, email: string): Promise<void> {
+    // Implementation to share a folder with a user by email
+    const folder = this.folders.get(folderId);
+    if (!folder) return;
+    
+    const user = await this.getUserByEmail(email);
+    if (!user) return;
+    
+    folder.isShared = true;
+    folder.sharedWith = [...new Set([...folder.sharedWith, user.id])];
+    folder.updatedAt = new Date().toISOString();
+    this.folders.set(folderId, folder);
+    await this.persist();
   }
 }
 

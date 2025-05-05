@@ -294,7 +294,7 @@ export function App() {
              </Button>
            </div>
            <div className="flex-grow overflow-hidden border rounded-lg">
-             <ArtifactPreview artifact={fullscreenArtifact} isVisible={true} />
+             <ArtifactPreview artifact={fullscreenArtifact as any} isVisible={true} />
            </div>
         </div>
       )}

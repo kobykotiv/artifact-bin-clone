@@ -5,7 +5,7 @@ import crypto from 'crypto';
 export interface ArtifactData {
   id: string;
   userId: string; // Changed from Types.ObjectId to string for consistency with dbService usage
-  folderId?: string;
+  folderId?: string; // Reference to parent folder
   projectId?: string;
   name: string;
   content: string; // Represents the code/text content (simulates S3 link/content)
@@ -16,6 +16,8 @@ export interface ArtifactData {
   updatedAt: string;
   avatarSeed: string; // Added based on existing Artifact interface in db.ts
   language: string; // Added based on existing Artifact interface in db.ts
+  isPublic?: boolean; // Whether artifact is publicly accessible
+  sharedWith?: string[]; // User IDs this artifact is shared with
 }
 
 // Mongoose Document Interface
@@ -44,6 +46,8 @@ const ArtifactSchema = new Schema<IArtifact>({
   tags: { type: [String], default: [] },
   voteRatio: { type: Number },
   avatarSeed: { type: String, default: () => crypto.randomUUID() },
+  isPublic: { type: Boolean, default: false },
+  sharedWith: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 }, {
   timestamps: true, // Adds createdAt and updatedAt automatically
   toJSON: { virtuals: true }, // Ensure virtuals like 'id' are included

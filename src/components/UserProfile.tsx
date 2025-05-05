@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
 import { KnowledgeGraph } from "@/components/KnowledgeGraph";
 import { SkillMatching } from "@/components/SkillMatching";
 import { authService } from "@/lib/services/auth";
+import { getRandomItem } from '@/lib/utils';
 
 interface UserProfileProps {
   userId?: string;

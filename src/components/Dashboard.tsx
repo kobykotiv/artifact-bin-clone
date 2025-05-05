@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout, DollarSign, PieChart, Building, Target } from 'lucide-react'; // Added Target icon
+import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout, DollarSign, PieChart, Building, Target, ChevronRight, FolderTree, File, X } from 'lucide-react'; // Added Target icon
 import { ArtifactViewer } from '@/components/ArtifactViewer';
 import { ArtifactEditor } from '@/components/ArtifactEditor';
 import { Input } from '@/components/ui/input';
@@ -21,21 +21,27 @@ import { SprintPlanner } from '@/components/SprintPlanner';
 import { DataPortability } from '@/components/DataPortability';
 import { StatsCard } from '@/components/Dashboard/StatsCard';
 import { BusinessPlanGenerator } from '@/components/BusinessPlanGenerator'; // Import the new component
-// import { type UserData } from '@/lib/services/auth'; // Ensure UserData is imported if used
+import { FolderExplorer } from './FolderExplorer';
+import { PromptSidebar } from './PromptSidebar';
 
 export function Dashboard() {
-  // ...existing state...
+  // Auth state
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState());
   const [userArtifacts, setUserArtifacts] = useState<ArtifactData[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Artifact state
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterLanguage, setFilterLanguage] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<string>("artifacts"); // Keep track of the main dashboard tab
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-
+  
+  // UI state
+  // New state for the explorer layout
+  const [showExplorer, setShowExplorer] = useState(true);
+  const [showPromptPanel, setShowPromptPanel] = useState(true);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('artifacts'); // Add missing activeTab state
+  const [searchQuery, setSearchQuery] = useState<string>(''); // Add missing searchQuery state for search input
 
   // --- Data Fetching ---
   // ...existing code...
@@ -161,6 +167,19 @@ export function Dashboard() {
     }
   }, [authState.user, fetchUserArtifacts]);
 
+  const handleDeleteArtifact = useCallback(async (artifactToDelete: ArtifactData) => {
+    if (!authState.user) return;
+    try {
+      await dbService.deleteArtifact(artifactToDelete.id);
+      await fetchUserArtifacts(authState.user.id); // Refresh list from source
+      setSelectedArtifactId(null); // Clear selection
+      toast.success('Artifact deleted successfully');
+    } catch (error) {
+      console.error("Failed to delete artifact:", error);
+      toast.error("Failed to delete artifact");
+    }
+  }, [authState.user, fetchUserArtifacts]);
+
   // Add handleForkArtifact
   // ...existing code...
   const handleForkArtifact = useCallback(async (artifactToFork: ArtifactData) => {
@@ -281,346 +300,279 @@ export function Dashboard() {
     // ...existing code...
   }
 
+  // Create a registry of artifact handlers
+  const artifactHandlers = useMemo(() => ({
+    'project-spec': {
+      getComponent: (artifact: ArtifactData, isEditing: boolean) => {
+        try {
+          const content = JSON.parse(artifact.content || '{}');
+          
+          // Handle business plan types
+          if (content.marketingPlanData || content.fundraisingPlanData || 
+              content.budgetPlanData || content.sharesPlanData || 
+              content.startupPlanData || content.objectivesPlanData) {
+            return isEditing ? BusinessPlanGenerator : BusinessPlanGenerator;
+          }
+          
+          // Handle sprint planning
+          if (content.type === 'sprint') {
+            return SprintPlanner;
+          }
+          
+          // Handle generic project specs
+          return ProjectGenerator;
+        } catch (error) {
+          console.error("Error parsing artifact content:", error);
+          return isEditing ? ArtifactEditor : ArtifactViewer;
+        }
+      },
+      save: handleSaveArtifact,
+      delete: handleDeleteArtifact,
+      fork: handleForkArtifact
+    },
+    // Handle other artifact types
+    'default': {
+      getComponent: (artifact: ArtifactData, isEditing: boolean) => 
+        isEditing ? ArtifactEditor : ArtifactViewer,
+      save: handleSaveArtifact,
+      delete: handleDeleteArtifact,
+      fork: handleForkArtifact
+    }
+  }), [handleSaveArtifact, handleDeleteArtifact, handleForkArtifact]);
 
-  return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8 min-h-screen flex flex-col gap-4">
-      {/* Header with responsive design */}
-      {/* ...existing code... */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Welcome back, {authState.user.username || "Guest"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <DataPortability onImportComplete={() => fetchUserArtifacts(authState.user.id)} />
-          <FileUploadDialog onUpload={handleUpload} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                New
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Create New</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleCreateNew('code')}>
-                Code Artifact
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCreateNew('project')}>
-                Project Specification
-              </DropdownMenuItem>
-              {/* <DropdownMenuItem onClick={() => handleCreateNew('business')}>
-                 Business Plan (Generic - Deprecated?)
-              </DropdownMenuItem> */}
-              <DropdownMenuSeparator />
-              {/* Updated creation handlers - Now create specific plan types directly */}
-              <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Marketing'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('marketing'); // Let useEffect handle tab change */ } }}>Marketing Plan</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Funding'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('funding'); */ } }}>Fundraising Plan</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Budget'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('budget'); */ } }}>Budget Plan</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Shares'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('shares'); */ } }}>Shares Plan</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Startup'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('startup'); */ } }}>Startup Plan</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Objectives'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('objectives'); */ } }}>Objectives Plan</DropdownMenuItem>
-               <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Sprint'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); /* setActiveTab('sprint'); */ } }}>Sprint Plan</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+  // Function to get the appropriate component for an artifact
+  const getArtifactComponent = useCallback((artifact: ArtifactData, isEditing: boolean) => {
+    const handler = artifactHandlers[artifact.language] || artifactHandlers.default;
+    return handler.getComponent(artifact, isEditing);
+  }, [artifactHandlers]);
+
+  // Render artifact in the artifacts tab
+  const renderArtifact = () => {
+    if (!currentArtifact) return null;
+    
+    const Component = getArtifactComponent(currentArtifact, isEditing);
+    const handler = artifactHandlers[currentArtifact.language] || artifactHandlers.default;
+    
+    return (
+      <Component
+        key={currentArtifact.id}
+        artifact={currentArtifact}
+        onSave={handler.save}
+        onFork={handler.fork}
+        onCancel={isEditing ? () => setIsEditing(false) : undefined}
+        onEdit={!isEditing ? () => setIsEditing(true) : undefined}
+      />
+    );
+  };
+
+  // Group artifacts by folder/category for explorer view
+  const artifactsByFolder = useMemo(() => {
+    const grouped: Record<string, ArtifactData[]> = {
+      "All": [],
+      "Code Snippets": [],
+      "Project Specs": [],
+      "Business Plans": [],
+      "Sprint Plans": []
+    };
+    
+    userArtifacts.forEach(artifact => {
+      // Add to All category
+      grouped["All"].push(artifact);
+      
+      // Add to specific category based on language/tags
+      if (artifact.language === 'project-spec') {
+        try {
+          const content = JSON.parse(artifact.content || '{}');
+          if (content.type === 'sprint') {
+            grouped["Sprint Plans"].push(artifact);
+          } else if (content.marketingPlanData || content.fundraisingPlanData || 
+                     content.budgetPlanData || content.sharesPlanData || 
+                     content.startupPlanData || content.objectivesPlanData) {
+            grouped["Business Plans"].push(artifact);
+          } else {
+            grouped["Project Specs"].push(artifact);
+          }
+        } catch (e) {
+          grouped["Project Specs"].push(artifact);
+        }
+      } else {
+        grouped["Code Snippets"].push(artifact);
+      }
+    });
+    
+    return grouped;
+  }, [userArtifacts]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!authState.isAuthenticated || !authState.user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center space-y-4">
+          <h2 className="text-2xl font-bold">Not Authenticated</h2>
+          <p className="text-muted-foreground">Please login to access the dashboard.</p>
         </div>
       </div>
+    );
+  }
 
-
-      {/* Search and Filter - Responsive design */}
-      {/* ...existing code... */}
-
-
-      {/* Statistics Overview */}
-      {/* ...existing code... */}
-
-
-      {/* Main Content Grid with improved responsive design */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 flex-grow overflow-hidden">
-        {/* Left Column */}
-        <div className="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
-          {/* User Profile */}
-          {/* ...existing code... */}
-
-          {/* Artifact List with improved styling */}
-          {/* ...existing code... */}
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header */}
+      <header className="border-b bg-background p-2 flex-shrink-0">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="font-bold text-lg">Artifact Bin</h1>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowExplorer(!showExplorer)}
+              title={showExplorer ? "Hide explorer" : "Show explorer"}
+            >
+              <FolderTree className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Input
+                placeholder="Search artifacts..."
+                className="pl-8 w-[200px] sm:w-[300px]"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Create New</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleCreateNew('code')}>
+                  Code Artifact
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleCreateNew('project')}>
+                  Project Specification
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Marketing'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); } }}>Marketing Plan</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Funding'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); } }}>Fundraising Plan</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { const art = createPlanningArtifact('Sprint'); if(art) { setUserArtifacts(prev => [art, ...prev]); setSelectedArtifactId(art.id); } }}>Sprint Plan</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <DataPortability onImportComplete={() => fetchUserArtifacts(authState.user.id)} />
+          </div>
         </div>
+      </header>
 
-        {/* Right Column: Tabs for Different Forms */}
-        <div className="lg:col-span-2 xl:col-span-3 flex flex-col overflow-hidden">
-          <Card className="flex-grow flex flex-col overflow-hidden">
-            {/* Use controlled Tabs component */}
-            <Tabs value={activeTab} className="flex flex-col flex-grow overflow-hidden" onValueChange={setActiveTab}>
-              <TabsList className="px-6 pt-2 mb-0 border-b overflow-x-auto flex-nowrap w-full justify-start">
-                <TabsTrigger value="artifacts"><ListTodo className="w-4 h-4 mr-2" />Artifacts</TabsTrigger>
-                <TabsTrigger value="project"><Lightbulb className="w-4 h-4 mr-2" />Project Idea</TabsTrigger>
-                {/* Updated Business Plan Tabs */}
-                <TabsTrigger value="marketing"><Briefcase className="w-4 h-4 mr-2" />Marketing</TabsTrigger>
-                <TabsTrigger value="funding"><Briefcase className="w-4 h-4 mr-2" />Funding</TabsTrigger>
-                <TabsTrigger value="budget"><DollarSign className="w-4 h-4 mr-2" />Budget</TabsTrigger>
-                <TabsTrigger value="shares"><PieChart className="w-4 h-4 mr-2" />Shares</TabsTrigger>
-                <TabsTrigger value="startup"><Building className="w-4 h-4 mr-2" />Startup</TabsTrigger>
-                <TabsTrigger value="objectives"><Target className="w-4 h-4 mr-2" />Objectives</TabsTrigger> {/* Added Objectives */}
-                {/* Other Tabs */}
-                <TabsTrigger value="sprint"><ListTodo className="w-4 h-4 mr-2" />Sprint</TabsTrigger>
-                <TabsTrigger value="network"><Network className="w-4 h-4 mr-2" />Network</TabsTrigger>
-              </TabsList>
+      {/* Main three-panel layout */}
+      <div className="flex-grow flex overflow-hidden">
+        {/* Left panel - Explorer */}
+        {showExplorer && (
+          <aside className="w-64 border-r bg-muted/20 overflow-hidden flex flex-col">
+            <div className="p-2 font-medium border-b flex justify-between items-center">
+              <span>EXPLORER</span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setShowExplorer(false)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <ScrollArea className="flex-grow">
+              <FolderExplorer
+                folders={artifactsByFolder}
+                activeArtifactId={selectedArtifactId}
+                activeFolderId={activeFolderId}
+                onSelectFolder={setActiveFolderId}
+                onSelectArtifact={setSelectedArtifactId}
+              />
+            </ScrollArea>
+            
+            <div className="border-t p-2">
+              <UserProfile userId={authState.user.id} isGuest={authState.isGuest} />
+            </div>
+          </aside>
+        )}
 
-              {/* Artifacts Tab - Original viewer/editor functionality */}
-              <TabsContent value="artifacts" className="flex-grow overflow-hidden flex flex-col">
-                {currentArtifact ? (
-                  // Check artifact type/language to determine which component to render
-                  // Check if it's a specific plan type handled by BusinessPlanGenerator
-                  currentArtifact.language === 'project-spec' && (
-                    JSON.parse(currentArtifact.content || '{}').marketingPlanData ||
-                    JSON.parse(currentArtifact.content || '{}').fundraisingPlanData ||
-                    JSON.parse(currentArtifact.content || '{}').budgetPlanData ||
-                    JSON.parse(currentArtifact.content || '{}').sharesPlanData ||
-                    JSON.parse(currentArtifact.content || '{}').startupPlanData ||
-                    JSON.parse(currentArtifact.content || '{}').objectivesPlanData
-                  ) ? (
-                     <BusinessPlanGenerator
-                       key={currentArtifact.id}
-                       artifact={currentArtifact}
-                       onSave={handleSaveArtifact}
-                       // isTemplate={false} // Explicitly not a template when viewing existing
-                     />
-                  // Check if it's a generic project spec handled by ProjectGenerator
-                  ) : currentArtifact.language === 'project-spec' && !JSON.parse(currentArtifact.content || '{}').type && !JSON.parse(currentArtifact.content || '{}').marketingPlanData /* Add checks for other plan data */ ? (
-                    <ProjectGenerator
-                      key={currentArtifact.id}
-                      artifact={currentArtifact}
-                      onSave={handleSaveArtifact}
-                      onFork={handleForkArtifact}
-                      // isTemplate={false} // Explicitly not a template
-                    />
-                  // Check if it's a sprint plan
-                  ) : currentArtifact.language === 'project-spec' && JSON.parse(currentArtifact.content || '{}').type === 'sprint' ? (
-                     <SprintPlanner
-                       key={currentArtifact.id}
-                       artifact={currentArtifact}
-                       onSave={handleSaveArtifact}
-                     />
-                  // Handle standard code artifacts (edit/view)
-                  ) : isEditing ? (
-                    <ArtifactEditor
-                      key={currentArtifact.id}
-                      artifact={currentArtifact}
-                      onSave={handleSaveArtifact}
-                      onCancel={() => setIsEditing(false)}
-                    />
-                  ) : (
-                    <ArtifactViewer
-                      key={currentArtifact.id}
-                      artifact={currentArtifact}
-                      onEdit={() => setIsEditing(true)}
-                      onFork={handleForkArtifact} // Pass fork handler to viewer
-                    />
-                  )
-                ) : (
-                  // Placeholder when no artifact is selected
-                  // ...existing code...
-                  <div className="flex items-center justify-center h-full text-muted-foreground p-6">
-                    <div className="text-center max-w-md">
-                      <div className="mb-4">
-                        <ListTodo className="h-12 w-12 mx-auto text-muted-foreground" />
-                      </div>
-                      <h3 className="text-lg font-medium mb-2">No Artifact Selected</h3>
-                      <p>
-                        {userArtifacts.length > 0
-                          ? "Select an artifact from the list to view or edit."
-                          : "No artifacts found. Create one or upload a file."}
-                      </p>
-                      <Button
-                        className="mt-4"
-                        onClick={() => handleCreateNew('code')}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create New Artifact
-                      </Button>
-                    </div>
+        {/* Center panel - Artifact content */}
+        <main className="flex-grow overflow-hidden flex flex-col">
+          <div className="flex-grow overflow-auto p-4">
+            {currentArtifact ? (
+              renderArtifact()
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center max-w-md">
+                  <div className="mb-4">
+                    <File className="h-12 w-12 mx-auto text-muted-foreground" />
                   </div>
-                )}
-              </TabsContent>
+                  <h3 className="text-lg font-medium mb-2">No Artifact Selected</h3>
+                  <p>
+                    {userArtifacts.length > 0
+                      ? "Select an artifact from the explorer to view or edit."
+                      : "No artifacts found. Create one to get started."}
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => handleCreateNew('code')}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Artifact
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
 
-              {/* Project Idea Tab */}
-              <TabsContent value="project" className="flex-grow overflow-hidden">
-                <ProjectGenerator
-                  artifact={createPlanningArtifact('Project') || {
-                    // Provide a minimal valid ArtifactData structure as fallback
-                    id: 'temp-project',
-                    userId: authState.user.id,
-                    title: 'New Project Idea Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'project-spec'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'project-template',
-                    content: JSON.stringify({ id: 'temp-project-data', name: 'New Project Idea', description: '', features: [], contributors: ['You'], forks: 0, stars: 0 }, null, 2)
-                  }}
-                  onSave={handleSaveArtifact}
-                  onFork={handleForkArtifact}
-                  isTemplate // Mark as template
-                />
-              </TabsContent>
-
-
-              {/* Marketing Plan Tab - Uses BusinessPlanGenerator as template */}
-              <TabsContent value="marketing" className="flex-grow overflow-hidden">
-                <BusinessPlanGenerator
-                  artifact={createPlanningArtifact('Marketing') || {
-                    id: 'temp-marketing',
-                    userId: authState.user.id, // Add required fields
-                    title: 'Marketing Plan Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'marketing'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'marketing-template',
-                    content: JSON.stringify({ marketingPlanData: { audience: '', campaignType: '', channel: '', budget: '', kpi: '', timeline: '' } }, null, 2) // Simplified content
-                  }}
-                  onSave={handleSaveArtifact}
-                  isTemplate // Mark as template
-                />
-              </TabsContent>
-
-
-              {/* Funding Plan Tab - Uses BusinessPlanGenerator as template */}
-              <TabsContent value="funding" className="flex-grow overflow-hidden">
-                <BusinessPlanGenerator
-                  artifact={createPlanningArtifact('Funding') || {
-                    id: 'temp-funding',
-                    userId: authState.user.id,
-                    title: 'Funding Plan Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'funding'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'funding-template',
-                    content: JSON.stringify({ fundraisingPlanData: { stage: '', amount: '', useOfFunds: '', sector: '', closeDate: '', checklist: { pitchDeck: false, financials: false, marketAnalysis: false, teamBios: false } } }, null, 2) // Simplified content
-                  }}
-                  onSave={handleSaveArtifact}
-                  isTemplate // Mark as template
-                />
-              </TabsContent>
-
-
-              {/* Budget Plan Tab - Uses BusinessPlanGenerator as template */}
-              <TabsContent value="budget" className="flex-grow overflow-hidden">
-                <BusinessPlanGenerator
-                  artifact={createPlanningArtifact('Budget') || {
-                    id: 'temp-budget',
-                    userId: authState.user.id,
-                    title: 'Budget Plan Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'budget'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'budget-template',
-                    content: JSON.stringify({ budgetPlanData: { revenueProjection: '', costOfGoodsSold: '', operatingExpenses: '', fundingNeeds: '' } }, null, 2) // Simplified content
-                  }}
-                  onSave={handleSaveArtifact}
-                  isTemplate // Mark as template
-                />
-              </TabsContent>
-
-
-              {/* Shares Plan Tab - Uses BusinessPlanGenerator as template */}
-              <TabsContent value="shares" className="flex-grow overflow-hidden">
-                <BusinessPlanGenerator
-                  artifact={createPlanningArtifact('Shares') || {
-                    id: 'temp-shares',
-                    userId: authState.user.id,
-                    title: 'Shares Plan Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'shares'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'shares-template',
-                    content: JSON.stringify({ sharesPlanData: { totalShares: '', founderShares: '', employeePool: '', investorShares: '' } }, null, 2) // Simplified content
-                  }}
-                  onSave={handleSaveArtifact}
-                  isTemplate // Mark as template
-                />
-              </TabsContent>
-
-
-              {/* Startup Plan Tab - Uses BusinessPlanGenerator as template */}
-              <TabsContent value="startup" className="flex-grow overflow-hidden">
-                <BusinessPlanGenerator
-                  artifact={createPlanningArtifact('Startup') || {
-                    id: 'temp-startup',
-                    userId: authState.user.id,
-                    title: 'Startup Plan Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'startup'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'startup-template',
-                    content: JSON.stringify({ startupPlanData: { companyName: '', legalStructure: '', incorporationState: '', registeredAgent: '', checklist: { einObtained: false, bankAccountOpened: false, domainRegistered: false, founderAgreements: false } } }, null, 2) // Simplified content
-                  }}
-                  onSave={handleSaveArtifact}
-                  isTemplate // Mark as template
-                />
-              </TabsContent>
-
-
-              {/* Objectives Plan Tab - Uses BusinessPlanGenerator as template */}
-               <TabsContent value="objectives" className="flex-grow overflow-hidden">
-                 <BusinessPlanGenerator
-                   artifact={createPlanningArtifact('Objectives') || {
-                     id: 'temp-objectives',
-                     userId: authState.user.id,
-                     title: 'Objectives Plan Template', // Indicate template
-                     language: 'project-spec',
-                     fileType: 'json',
-                     tags: ['template', 'objectives'],
-                     createdAt: new Date().toISOString(),
-                     updatedAt: new Date().toISOString(),
-                     avatarSeed: 'objectives-template',
-                     content: JSON.stringify({ objectivesPlanData: { goalVerb: '', goalMetric: '', goalTarget: '', timeframe: '', objectiveArea: '', growthStrategy: '', actionVerb: '', actionTarget: '', kpiMetric: '' } }, null, 2) // Simplified content
-                   }}
-                   onSave={handleSaveArtifact}
-                   isTemplate // Mark as template
-                 />
-               </TabsContent>
-
-
-              {/* Sprint Planner Tab */}
-              <TabsContent value="sprint" className="flex-grow overflow-hidden">
-                <SprintPlanner
-                  artifact={createPlanningArtifact('Sprint') || {
-                    // Provide minimal valid structure
-                    id: 'temp-sprint',
-                    userId: authState.user.id,
-                    title: 'Sprint Plan Template', // Indicate template
-                    language: 'project-spec',
-                    fileType: 'json',
-                    tags: ['template', 'sprint'],
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    avatarSeed: 'sprint-template',
-                    content: JSON.stringify({ type: 'sprint', projectName: '', sprints: [] }, null, 2)
-                  }}
-                  onSave={handleSaveArtifact}
-                  // isTemplate // SprintPlanner might not need isTemplate, it handles its own state
-                />
-              </TabsContent>
-
-
-              {/* Network Graph Tab */}
-              {/* ...existing code... */}
-
-            </Tabs>
-          </Card>
-        </div>
+        {/* Right panel - Prompt sidebar */}
+        {showPromptPanel && (
+          <aside className="w-64 border-l bg-muted/20 flex flex-col overflow-hidden">
+            <div className="p-2 font-medium border-b flex justify-between items-center">
+              <span>CLAUDE ASSISTANT</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                onClick={() => setShowPromptPanel(false)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <PromptSidebar 
+              artifactId={selectedArtifactId} 
+              artifact={currentArtifact}
+            />
+          </aside>
+        )}
+        
+        {/* Toggle button for prompt panel when hidden */}
+        {!showPromptPanel && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="absolute right-2 top-[50px]"
+            onClick={() => setShowPromptPanel(true)}
+            title="Show assistant"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
