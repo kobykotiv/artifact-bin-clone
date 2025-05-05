@@ -9,12 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { type ArtifactData } from '@/lib/services/db';
 import { Copy, Save, GitFork, Users, Code, Layout, Plus, Trash, Shuffle } from 'lucide-react'; // Keep necessary icons
+import { getRandomItem } from '@/lib/utils/random';
+import { featureImplementations, generateImplementation, type FeatureType } from '@/lib/constants/featureImplementations';
 
 // --- Interfaces ---
 interface ProjectFeature {
     id: string;
     name: string;
     description: string;
+    implementation?: {
+        pattern: string;
+        components: string[];
+        apis: string[];
+        dataModel: string[];
+        library: string;
+    };
 }
 
 interface ProjectData {
@@ -110,11 +119,19 @@ const ProjectGenerator: React.FC<ProjectGeneratorProps> = ({ artifact, onSave, o
             toast.error("Feature name cannot be empty.");
             return;
         }
+
+        // Try to match feature with known implementations
+        const featureType = Object.keys(featureImplementations).find(key =>
+            featureImplementations[key as FeatureType].name.toLowerCase() === newFeatureName.toLowerCase()
+        ) as FeatureType | undefined;
+
         const newFeature: ProjectFeature = {
             id: crypto.randomUUID(),
             name: newFeatureName.trim(),
             description: newFeatureDesc.trim(),
+            implementation: featureType ? generateImplementation(featureType) : undefined
         };
+
         setProject(prev => ({ ...prev, features: [...prev.features, newFeature] }));
         setNewFeatureName('');
         setNewFeatureDesc('');
@@ -143,7 +160,6 @@ const ProjectGenerator: React.FC<ProjectGeneratorProps> = ({ artifact, onSave, o
     };
 
     const handleForkClick = () => {
-        // The onFork function passed from Dashboard handles the logic
         onFork(artifact);
     };
 
@@ -280,14 +296,31 @@ const ProjectGenerator: React.FC<ProjectGeneratorProps> = ({ artifact, onSave, o
                                 {project.features.length > 0 ? (
                                     <ul className="space-y-3">
                                         {project.features.map(feature => (
-                                            <li key={feature.id} className="flex items-start justify-between p-3 border rounded-md bg-muted/50">
-                                                <div>
-                                                    <p className="font-medium">{feature.name}</p>
-                                                    {feature.description && <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>}
+                                            <li key={feature.id} className="flex flex-col p-3 border rounded-md bg-muted/50">
+                                                <div className="flex justify-between">
+                                                    <div>
+                                                        <p className="font-medium">{feature.name}</p>
+                                                        {feature.description && <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>}
+                                                    </div>
+                                                    <Button variant="ghost" size="sm" onClick={() => handleRemoveFeature(feature.id)} className="ml-2 text-destructive hover:text-destructive">
+                                                        <Trash className="w-4 h-4" />
+                                                    </Button>
                                                 </div>
-                                                <Button variant="ghost" size="sm" onClick={() => handleRemoveFeature(feature.id)} className="ml-2 text-destructive hover:text-destructive">
-                                                    <Trash className="w-4 h-4" />
-                                                </Button>
+                                                {feature.implementation && (
+                                                    <div className="mt-2 pt-2 border-t text-sm">
+                                                        <p><strong>Pattern:</strong> {feature.implementation.pattern}</p>
+                                                        <p><strong>Library:</strong> {feature.implementation.library}</p>
+                                                        {feature.implementation.components.length > 0 && (
+                                                            <p><strong>Components:</strong> {feature.implementation.components.join(', ')}</p>
+                                                        )}
+                                                        {feature.implementation.apis.length > 0 && (
+                                                            <p><strong>APIs:</strong> {feature.implementation.apis.join(', ')}</p>
+                                                        )}
+                                                        {feature.implementation.dataModel.length > 0 && (
+                                                            <p><strong>Data Models:</strong> {feature.implementation.dataModel.join(', ')}</p>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </li>
                                         ))}
                                     </ul>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout, DollarSign, PieChart, Building, Target, ChevronRight, FolderTree, File, X, FileDown } from 'lucide-react'; // Added Target icon
+import { Loader2, Search, Plus, Network, Briefcase, ListTodo, Lightbulb, BarChart3, Layout, DollarSign, PieChart, Building, Target, ChevronRight, FolderTree, File, X, FileDown, Sparkles, GitBranch } from 'lucide-react'; // Added Target icon
 import { ArtifactViewer } from '@/components/ArtifactViewer';
 import { ArtifactEditor } from '@/components/ArtifactEditor';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ import { PromptSidebar } from './PromptSidebar';
 import { TemplateModal } from '@/components/TemplateModal';
 import { ExportModal } from '@/components/ExportModal';
 import { exportToMarkdown, exportToPDF } from '@/lib/utils/export';
+import { SuggestionFeed } from './SuggestionFeed';
+import { GitSidebar } from './GitSidebar';
 
 export function Dashboard() {
   // Auth state
@@ -47,6 +49,7 @@ export function Dashboard() {
   const [searchQuery, setSearchQuery] = useState<string>(''); // Add missing searchQuery state for search input
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showGitPanel, setShowGitPanel] = useState(false);
 
   // Responsive state
   const [isMobile, setIsMobile] = useState(false);
@@ -592,6 +595,14 @@ export function Dashboard() {
             >
               <FolderTree className="h-4 w-4" />
             </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowGitPanel(!showGitPanel)}
+              title={showGitPanel ? "Hide git" : "Show git"}
+            >
+              <GitBranch className="h-4 w-4" />
+            </Button>
           </div>
           
           <div className="flex items-center gap-2">
@@ -706,23 +717,28 @@ export function Dashboard() {
           </div>
         </main>
 
-        {/* Right panel - Prompt sidebar */}
+        {/* Right panel - Suggestion Feed */}
         {showPromptPanel && (
           <aside className="w-64 border-l bg-muted/20 flex flex-col overflow-hidden">
             <div className="p-2 font-medium border-b flex justify-between items-center">
-              <span>CLAUDE ASSISTANT</span>
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Project Ideas
+              </span>
               <Button 
                 variant="ghost" 
-                size="sm" 
+                size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => setShowPromptPanel(false)}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <PromptSidebar 
-              artifactId={selectedArtifactId} 
-              artifact={currentArtifact}
+            <SuggestionFeed 
+              onSuggestionSelect={(suggestion) => {
+                setShowTemplateModal(true);
+                // You can handle the suggestion here
+              }}
             />
           </aside>
         )}
@@ -738,6 +754,13 @@ export function Dashboard() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
+        )}
+
+        {/* Git Panel */}
+        {showGitPanel && (
+          <aside className="w-64 border-l bg-muted/20 flex flex-col overflow-hidden">
+            <GitSidebar />
+          </aside>
         )}
       </div>
 

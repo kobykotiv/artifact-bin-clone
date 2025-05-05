@@ -22,6 +22,18 @@ import { type ArtifactData } from '@/lib/services/db'; // Import ArtifactData ty
 import { corporationSetupGuide } from '@/lib/businessGuides/corporationSetup';
 import { termSheetGuide } from '@/lib/businessGuides/termSheet';
 
+import {
+  goalVerbs,
+  goalMetrics,
+  goalTargets,
+  timeframes,
+  objectiveAreas,
+  growthStrategies,
+  actionVerbs,
+  actionTargets,
+  kpiMetrics
+} from '@/lib/constants/objectives';
+
 // Rename props interface
 interface BusinessPlanGeneratorProps {
   artifact: ArtifactData;
@@ -248,7 +260,7 @@ function SlotMachine({ options, label, value, onChange }: SlotMachineProps) {
 }
 
 // Rename component function
-export function BusinessPlanGenerator({ artifact, onSave, isTemplate = false }: BusinessPlanGeneratorProps) { // Added isTemplate back
+export const BusinessPlanGenerator: React.FC<BusinessPlanGeneratorProps> = ({ artifact, onSave, isTemplate = false }: BusinessPlanGeneratorProps) => { // Added isTemplate back
   // Define a key for localStorage
   const LOCAL_STORAGE_KEY = 'businessPlanGeneratorState';
   // State for Pitch (using SlotMachine)

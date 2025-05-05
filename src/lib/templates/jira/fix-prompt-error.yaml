@@ -1,0 +1,23 @@
+title: "[AI] Fix prompt error in {{component}}"
+type: "Bug"
+priority: "High"
+description: |
+  The prompt generation in {{component}} failed with:
+  
+  ```
+  {{error}}
+  ```
+  
+  ## Steps to Reproduce
+  {{reproduction_steps}}
+  
+  ## Impact
+  This affects the AI prompt generation functionality for {{feature_area}}
+  
+  ## Suggested Fix
+  {{suggested_fix}}
+
+labels:
+  - ai
+  - prompt-fix
+  - needs-review
