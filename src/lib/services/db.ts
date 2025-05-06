@@ -3,6 +3,7 @@ import { type IPrompt, type PromptData } from "@/lib/models/Prompt";
 
 // Define interfaces for new entities
 export interface ArtifactData {
+  [x: string]: string;
   language: string;
   title: any;
   id: string;

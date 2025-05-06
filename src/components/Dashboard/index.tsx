@@ -1,6 +1,6 @@
-// Main entry point that orchestrates the Dashboard components
-import { DashboardLayout } from './DashboardLayout';
-import { DashboardProvider } from './DashboardContext';
+export { DashboardLayout } from './DashboardLayout';
+export { DashboardProvider } from './DashboardContext';
+export type { LayoutState } from './types';
 
 export function Dashboard() {
   return (

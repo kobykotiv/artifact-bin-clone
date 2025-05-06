@@ -278,7 +278,8 @@ export function Dashboard() {
       tags: tags,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      avatarSeed: crypto.randomUUID()
+      avatarSeed: crypto.randomUUID(),
+      name: 'Untitled'
     };
 
     return newArtifact;
@@ -299,7 +300,8 @@ export function Dashboard() {
         tags: ['code'],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        avatarSeed: crypto.randomUUID()
+        avatarSeed: crypto.randomUUID(),
+        name: ''
       };
       
       setUserArtifacts(prev => [newArtifact, ...prev]);
@@ -391,7 +393,8 @@ export function Dashboard() {
         tags: ['upload', 'code'],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        avatarSeed: crypto.randomUUID()
+        avatarSeed: crypto.randomUUID(),
+        name: ''
       };
 
       await dbService.saveArtifact(uploadedArtifact);

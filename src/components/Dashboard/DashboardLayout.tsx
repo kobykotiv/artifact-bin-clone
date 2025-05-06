@@ -1,18 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDashboard } from './DashboardContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArtifactList } from '@/components/ArtifactList';
-import { UserProfile } from '@/components/UserProfile';
 import { artifactComponentRegistry } from '@/lib/artifactTypes';
 import { SaaSStrategies } from './SaaSStrategies';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowUpDown, Search, FolderOpen } from 'lucide-react';
+import { Plus, ArrowUpDown, Search, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { FolderView } from './FolderView';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { UserAvatar } from '@/components/UserAvatar';
+import { Root as Collapsible, Trigger as CollapsibleTrigger, Content as CollapsibleContent } from '@radix-ui/react-collapsible';
+import PseudocodeGenerator from '@/lib/templates/PseudocodeGenerator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { GitSidebar } from '../GitSidebar';
+import { SuggestionFeed } from '../SuggestionFeed';
 
 export function DashboardLayout() {
-  const { 
+  const { layout, setLayout, 
     artifacts, 
     selectedArtifactId, 
     setSelectedArtifactId,
@@ -23,8 +29,6 @@ export function DashboardLayout() {
     deleteArtifact,
     forkArtifact,
     createArtifact,
-    activeTab,
-    setActiveTab,
     folders,
     selectedFolderId,
     setSelectedFolderId,
@@ -43,7 +47,22 @@ export function DashboardLayout() {
     const matchesSearch = artifact.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLanguage = filterLanguage === 'all' || artifact.language === filterLanguage;
     return matchesSearch && matchesLanguage;
-  });
+  }).map(artifact => ({
+    ...artifact,
+    code: artifact.code || '',
+    avatarSeed: artifact.avatarSeed || artifact.id
+  }));
+
+  // Handle tab change
+  const handleTabChange = useCallback((value: string) => {
+    setLayout({
+      activeTab: value,
+      tabVisibility: {
+        ...layout.tabVisibility,
+        [value]: true
+      }
+    });
+  }, [layout.tabVisibility, setLayout]);
 
   // Render the appropriate component for the current artifact
   const renderArtifactComponent = () => {
@@ -66,98 +85,240 @@ export function DashboardLayout() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      {/* Header with search and filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <h1 className="text-2xl font-bold">Artifact Dashboard</h1>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Input
-            placeholder="Search artifacts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full sm:w-64"
-          />
-          <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by language" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Languages</SelectItem>
-              <SelectItem value="javascript">JavaScript</SelectItem>
-              <SelectItem value="typescript">TypeScript</SelectItem>
-              <SelectItem value="project-spec">Project Specs</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')}>
-            <ArrowUpDown className="h-4 w-4" />
-          </Button>
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header Bar */}
+      <div className="border-b bg-background p-2 flex-shrink-0">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="font-bold text-lg">Artifact Bin</h1>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setLayout({ showExplorer: !layout.showExplorer })}
+              title={layout.showExplorer ? "Hide explorer" : "Show explorer"}
+            >
+              <FolderOpen className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="relative w-[300px]">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search artifacts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Languages</SelectItem>
+                  <SelectItem value="javascript">JavaScript</SelectItem>
+                  <SelectItem value="typescript">TypeScript</SelectItem>
+                  <SelectItem value="python">Python</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
+            </div>
+            <UserAvatar username="demo-user" />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="md:col-span-1 space-y-6">
-          <UserProfile />
-          
-          <div className="bg-card rounded-lg p-4 border shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">Artifacts</h2>
-              <Button size="sm" onClick={() => createArtifact('code')}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                New
-              </Button>
-            </div>
-            <ArtifactList 
-              artifacts={filteredArtifacts}
-              selectedId={selectedArtifactId}
-              onSelect={setSelectedArtifactId}
-              displayMode={viewMode}
-            />
+      {/* Main three-panel layout */}
+      <div className="flex-grow flex overflow-hidden">
+        {/* Left Explorer Panel */}
+        {layout.showExplorer && (
+          <aside className="w-64 border-r bg-muted/20 flex flex-col overflow-hidden">
+            <ScrollArea className="flex-grow">
+              <div className="p-4">
+                <Tabs defaultValue="artifacts" value={layout.activeTab} onValueChange={handleTabChange}>
+                  <TabsList>
+                    <div className="flex items-center">
+                      <TabsTrigger 
+                        value="artifacts" 
+                        className="flex items-center"
+                        onClick={() => setLayout({ tabVisibility: { ...layout.tabVisibility, artifacts: !layout.tabVisibility.artifacts } })}
+                      >
+                        Artifacts
+                        {layout.tabVisibility.artifacts ? 
+                          <ChevronDown className="ml-2 h-4 w-4" /> : 
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        }
+                      </TabsTrigger>
+                      
+                      <TabsTrigger 
+                        value="folders" 
+                        className="flex items-center"
+                        onClick={() => setLayout({ tabVisibility: { ...layout.tabVisibility, folders: !layout.tabVisibility.folders } })}
+                      >
+                        Folders
+                        {layout.tabVisibility.folders ? 
+                          <ChevronDown className="ml-2 h-4 w-4" /> : 
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        }
+                      </TabsTrigger>
+                      
+                      <TabsTrigger 
+                        value="pseudocode" 
+                        className="flex items-center"
+                        onClick={() => setLayout({ tabVisibility: { ...layout.tabVisibility, pseudocode: !layout.tabVisibility.pseudocode } })}
+                      >
+                        Pseudocode
+                        {layout.tabVisibility.pseudocode ? 
+                          <ChevronDown className="ml-2 h-4 w-4" /> : 
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        }
+                      </TabsTrigger>
+                    </div>
+                  </TabsList>
+                  
+                  {/* Tab Contents */}
+                  <div className="border rounded-lg p-4">
+                    {layout.activeTab === "artifacts" && layout.tabVisibility.artifacts && (
+                      <ArtifactList
+                        artifacts={filteredArtifacts}
+                        selectedId={selectedArtifactId}
+                        onSelect={setSelectedArtifactId}
+                        displayMode={viewMode}
+                      />
+                    )}
+                    
+                    {layout.activeTab === "folders" && layout.tabVisibility.folders && (
+                      <FolderView
+                        folders={folders}
+                        artifacts={artifacts}
+                        selectedFolderId={selectedFolderId}
+                        onSelectFolder={setSelectedFolderId}
+                        onCreateFolder={createFolder}
+                        onShareFolder={shareFolder}
+                        onDeleteFolder={deleteFolder}
+                        onSelectArtifact={setSelectedArtifactId}
+                        selectedArtifactId={selectedArtifactId}
+                        onMoveArtifacts={() => {}}
+                      />
+                    )}
+                    
+                    {layout.activeTab === "pseudocode" && layout.tabVisibility.pseudocode && (
+                      <PseudocodeGenerator
+                        onGenerate={(code: string) => {
+                          createArtifact('code', code);
+                        }}
+                      />
+                    )}
+                  </div>
+                </Tabs>
+              </div>
+            </ScrollArea>
+          </aside>
+        )}
+
+        {/* Main Content Area */}
+        <main className="flex-grow overflow-auto">
+          <div className="container mx-auto p-4">
+            {/* Existing content rendering */}
+            {currentArtifact && (
+              <Card className="mt-6 xl:mt-8">
+                <CardContent className="p-6">
+                  {renderArtifactComponent()}
+                </CardContent>
+              </Card>
+            )}
           </div>
-        </div>
-        
-        {/* Main content */}
-        <div className="md:col-span-3">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
-              <TabsTrigger value="projects">Projects</TabsTrigger>
-              <TabsTrigger value="marketing">Marketing</TabsTrigger>
-              <TabsTrigger value="strategies">SaaS Strategies</TabsTrigger>
-              <TabsTrigger value="folders">
-                <FolderOpen className="w-4 h-4 mr-2" />
-                Folders
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="artifacts" className="min-h-[500px]">
-              {renderArtifactComponent()}
-            </TabsContent>
-            
-            <TabsContent value="strategies">
-              <SaaSStrategies />
-            </TabsContent>
-            
-            <TabsContent value="folders">
-              <FolderView
-                folders={folders}
-                artifacts={artifacts}
-                selectedFolderId={selectedFolderId}
-                onSelectFolder={setSelectedFolderId}
-                onCreateFolder={createFolder}
-                onShareFolder={shareFolder}
-                onDeleteFolder={deleteFolder}
-                onSelectArtifact={(id) => {
-                  setSelectedArtifactId(id);
-                  setActiveTab('artifacts');
-                }}
-                selectedArtifactId={selectedArtifactId}
-              />
-            </TabsContent>
-            
-            {/* Add other tab contents here */}
-          </Tabs>
+        </main>
+
+        {/* Right Sidebar Panels */}
+        <div className="flex flex-col w-64 border-l bg-muted/20">
+          {/* Quick Actions */}
+          <Collapsible open={layout.showQuickActions} onOpenChange={(open) => setLayout({ showQuickActions: open })}>
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center cursor-pointer mb-2">
+                {layout.showQuickActions ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <span className="ml-2 font-semibold text-lg">Quick Actions</span>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <Card className="sticky top-24">
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    className="w-full justify-start" 
+                    onClick={() => createArtifact('code')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Code Snippet
+                  </Button>
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="secondary"
+                    onClick={() => createArtifact('project')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Project
+                  </Button>
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => setSelectedFolderId(null)}
+                  >
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                    View All Files
+                  </Button>
+                  <Button 
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={() => {
+                      setLayout({ activeTab: "pseudocode", tabVisibility: { ...layout.tabVisibility, pseudocode: true } });
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Generate Pseudocode
+                  </Button>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Git Panel */}
+          {layout.showGitPanel && <GitSidebar />}
+
+          {/* Suggestion Feed */}
+          {layout.showPromptPanel && (
+            <div className="border-t">
+              <SuggestionFeed onSuggestionSelect={() => {}} />
+            </div>
+          )}
+
+          {/* SaaS Strategies Collapsible */}
+          <Collapsible open={layout.showSaaS} onOpenChange={(open) => setLayout({ showSaaS: open })}>
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center cursor-pointer mb-2">
+                {layout.showSaaS ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <span className="ml-2 font-semibold text-lg">SaaS Strategies</span>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <Card className="sticky top-[280px]">
+                <CardHeader className="pb-2">
+                  <CardTitle>SaaS Strategies</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="-mt-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+                    <SaaSStrategies />
+                  </div>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </div>
     </div>

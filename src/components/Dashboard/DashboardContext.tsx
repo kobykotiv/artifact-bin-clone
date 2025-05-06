@@ -3,6 +3,7 @@ import { dbService, type ArtifactData } from '@/lib/services/db';
 import { authService } from '@/lib/services/auth';
 import { toast } from 'sonner';
 import { getFileTypeFromLanguage } from '@/lib/utils/fileTypes';
+import { type LayoutState } from './types';
 
 interface DashboardContextType {
   artifacts: ArtifactData[];
@@ -24,6 +25,8 @@ interface DashboardContextType {
   createFolder: (name: string, parentId?: string) => Promise<void>;
   shareFolder: (folderId: string, emails: string[]) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
+  layout: LayoutState;
+  setLayout: (state: Partial<LayoutState>) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | null>(null);
@@ -38,6 +41,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState(authService.getAuthState());
   const [folders, setFolders] = useState<FolderData[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [layout, setLayoutState] = useState<LayoutState>({
+    showExplorer: true,
+    showPromptPanel: false,
+    showGitPanel: false,
+    activeTab: 'artifacts',
+    tabVisibility: {
+      artifacts: true,
+      folders: false,
+      pseudocode: false
+    }
+  });
+
+  const setLayout = useCallback((newState: Partial<LayoutState>) => {
+    setLayoutState(prev => ({ ...prev, ...newState }));
+  }, []);
 
   // Fetch artifacts when auth state changes
   useEffect(() => {
@@ -307,7 +325,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setSelectedFolderId,
     createFolder,
     shareFolder,
-    deleteFolder
+    deleteFolder,
+    layout,
+    setLayout
   };
 
   return (
