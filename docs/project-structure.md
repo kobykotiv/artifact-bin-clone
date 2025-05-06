@@ -7,7 +7,7 @@
     - `/ui`: UI components from shadcn/ui
     - `/Dashboard`: Dashboard-specific components
       - `/Dashboard.tsx`: Main entry point for the dashboard feature. Sets up `DashboardProvider` and renders `DashboardLayout`.
-      - `/DashboardLayout.tsx`: Core layout component for the authenticated user experience. Integrates all dashboard features like explorer panel (artifacts, folders), main content area for artifact viewing/editing, and a right sidebar with statistics, quick actions, SaaS strategies, Git panel, and suggestion feed.
+      - `/DashboardLayout.tsx`: Core layout component for the authenticated user experience. Implements a magazine-style layout for legal documents, pseudocode, working papers, and documentation.
       - `/DashboardContext.tsx`: React context provider for managing all dashboard-related state and actions (artifacts, folders, layout visibility, CRUD operations).
       - `/StatsCard.tsx`: Component for displaying user activity and artifact statistics. Used within `DashboardLayout`.
       - `/SaaSStrategies.tsx`: Component for displaying SaaS strategy guides. Used within `DashboardLayout`.
@@ -18,21 +18,29 @@
     - `/services`: Service layers (auth, db, etc)
     - `/templates`: Prompt and ticket templates
     - `/utils`: Utility functions (fileTypes, export, random, etc.)
-  - `/styles`: Global CSS styles, including `dashboard.css`
+      - `/exportUtils.ts`: Functions for exporting artifacts to PDF and DOCX formats
+  - `/styles`: Global CSS styles, including `dashboard.css` for magazine-style dashboard layout
   - `/pages`: (if using Next.js) Page components
   - `/app`: (if using Next.js App Router) App routes
 
 ## Key Features
 
 - **Artifact Management**: Create, store, and organize code snippets and documents.
+- **Document Drafting**: Magazine-style interface for creating:
+  - Legal documents with templates
+  - Technical documentation
+  - Pseudocode generation
+  - Working papers and reports
+- **Document Export**: Export artifacts to PDF and DOCX formats.
 - **Folder Organization**: Group artifacts into folders with nesting and sharing capabilities.
 - **Prompt Library**: Create and use templated prompts with variables.
 - **Business Plan Generation**: Generate various business documents.
-- **Integrated Dashboard**: A comprehensive, centralized dashboard initiated by `Dashboard.tsx` and structured by `DashboardLayout.tsx` for managing all aspects of the application when authenticated. Features include:
+- **Integrated Dashboard**: A comprehensive, magazine-style dashboard initiated by `Dashboard.tsx` and structured by `DashboardLayout.tsx` for managing all aspects of the application when authenticated. Features include:
     - Unified artifact and folder exploration.
     - Powerful search and filtering for artifacts.
     - At-a-glance statistics display via `StatsCard.tsx`.
     - Convenient Quick Actions panel for common operations.
+    - Document templates and export tools.
     - Informative SaaS strategy guides via `SaaSStrategies.tsx`.
     - Integrated Git panel for version control insights.
     - AI-powered Suggestion Feed for contextual help.
@@ -43,6 +51,7 @@
 - Frontend: React with TypeScript
 - State Management: React Context API (for Dashboard) / Zustand (potentially for global state)
 - UI Components: shadcn/ui
+- Document Generation: Custom exportUtils for PDF and DOCX generation
 - Backend: (Assumed Node.js with Express if server-side features are built out)
 - Database: IndexedDB (client-side), MongoDB (potential server-side)
 - Authentication: JWT (if server-side auth is implemented)
