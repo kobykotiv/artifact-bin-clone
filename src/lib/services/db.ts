@@ -507,6 +507,107 @@ class DBService {
     this.folders.set(folderId, folder);
     await this.persist();
   }
+
+  // Add this method to the dbService object
+  async getUserStatistics(userId: string) {
+    try {
+      const artifacts = await dbInstance.artifacts
+        .where('userId')
+        .equals(userId)
+        .toArray();
+      
+      const folders = await dbInstance.folders
+        .where('userId')
+        .equals(userId)
+        .toArray();
+      
+      const user = await dbInstance.users
+        .where('id')
+        .equals(userId)
+        .first();
+      
+      // Calculate statistics
+      const artifactCount = artifacts.length;
+      const folderCount = folders.length;
+      
+      // Calculate size statistics
+      const totalArtifactSize = artifacts.reduce((total, artifact) => {
+        const contentSize = artifact.content 
+          ? new Blob([typeof artifact.content === 'string' 
+            ? artifact.content 
+            : JSON.stringify(artifact.content)]).size 
+          : 0;
+        return total + contentSize;
+      }, 0);
+      
+      const averageArtifactSize = artifactCount > 0 
+        ? totalArtifactSize / artifactCount 
+        : 0;
+      
+      // Calculate language distribution
+      const languageDistribution: Record<string, number> = {};
+      artifacts.forEach(artifact => {
+        const language = artifact.language || 'unknown';
+        languageDistribution[language] = (languageDistribution[language] || 0) + 1;
+      });
+      
+      // Calculate folder distribution
+      const folderDistribution: Record<string, number> = {};
+      artifacts.forEach(artifact => {
+        const folderId = artifact.folderId || 'none';
+        folderDistribution[folderId] = (folderDistribution[folderId] || 0) + 1;
+      });
+      
+      // Calculate storage statistics
+      const storageLimit = 1024 * 1024 * 10; // 10MB limit for example
+      const storageUsed = totalArtifactSize;
+      const storageUsedPercent = (storageUsed / storageLimit) * 100;
+      
+      // Placeholder for activity data
+      const now = new Date();
+      const dailyActivity: Record<string, number> = {
+        [(now.getMonth() + 1) + '/' + (now.getDate() - 2)]: 3,
+        [(now.getMonth() + 1) + '/' + (now.getDate() - 1)]: 7,
+        [(now.getMonth() + 1) + '/' + now.getDate()]: 5,
+      };
+      
+      const weeklyActivity: Record<string, number> = {
+        'Week 1': 12,
+        'Week 2': 19,
+        'Week 3': 8,
+        'Week 4': 15,
+      };
+      
+      const monthlyActivity: Record<string, number> = {
+        'Jan': 45,
+        'Feb': 32,
+        'Mar': 67,
+        'Apr': 24,
+      };
+      
+      return {
+        userId,
+        artifactCount,
+        folderCount,
+        languageDistribution,
+        folderDistribution,
+        totalArtifactSize,
+        averageArtifactSize,
+        storageUsed,
+        storageLimit,
+        storageUsedPercent,
+        dailyActivity,
+        weeklyActivity,
+        monthlyActivity,
+        lastActivity: user?.lastLoginAt || now.toISOString(),
+        createdAt: user?.createdAt || now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+    } catch (error) {
+      console.error("Error fetching user statistics:", error);
+      throw new Error("Failed to get user statistics");
+    }
+  }
 }
 
 export const dbService = new DBService();

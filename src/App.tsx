@@ -17,6 +17,9 @@ import Dashboard from "@/components/Dashboard"; // Corrected Import Dashboard
 // Define a constant for the project generator language type
 const PROJECT_GENERATOR_LANG = 'project-generator';
 
+// Make sure to install these Radix UI packages:
+// npm install @radix-ui/react-radio-group @radix-ui/react-checkbox @radix-ui/react-collapsible
+
 export function App() {
   // --- Existing State for Artifact Bin View ---
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);

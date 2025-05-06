@@ -12,11 +12,16 @@ import '@/styles/dashboard.css';
  * - Working papers
  * - Documentation
  * - Project export tools (PDF, DOCX)
+ * 
+ * The layout is optimized for large screens with responsive panels and content areas
+ * that make effective use of available space on wide displays.
  */
 export default function Dashboard() {
   return (
     <DashboardProvider>
-      <DashboardLayout />
+      <div className="dashboard-container large-screen-optimized">
+        <DashboardLayout />
+      </div>
     </DashboardProvider>
   );
 }

@@ -1,5 +1,91 @@
 /* Magazine-style Dashboard Layout Styles */
 
+/* Large screen optimizations */
+.large-screen-optimized {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 1920px) {
+  .large-screen-container {
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 2560px) {
+  .large-screen-container {
+    max-width: 2400px;
+    margin: 0 auto;
+  }
+}
+
+/* Sticky navigation for large screens */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: var(--background);
+}
+
+@media (min-width: 1600px) {
+  .sticky-left-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 30;
+  }
+  
+  .sticky-right-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    z-index: 30;
+  }
+  
+  .sticky-tabs-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: var(--background);
+  }
+}
+
+/* Theme variants for sidebars */
+.sticky-left-sidebar.dark,
+.sticky-right-sidebar.dark {
+  background-color: hsl(224, 71%, 4%);
+  color: white;
+}
+
+/* Better use of horizontal space on large screens */
+@media (min-width: 1600px) {
+  .magazine-layout {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  }
+  
+  .sidebar-expanded {
+    width: 320px;
+  }
+}
+
+@media (min-width: 2000px) {
+  .magazine-layout {
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  }
+  
+  .sidebar-expanded {
+    width: 360px;
+  }
+}
+
+/* Dashboard content optimized for large screens */
+.dashboard-content-xl {
+  padding: 2rem;
+}
+
+/* Magazine layout for large screens */
 .magazine-layout {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -42,6 +128,21 @@
   line-height: 1.8;
 }
 
+/* For large screens, increase text size slightly for better readability */
+@media (min-width: 1920px) {
+  .document-editor {
+    font-size: 1.05rem;
+  }
+  
+  .document-editor h1 {
+    font-size: 2.25rem;
+  }
+  
+  .document-editor h2 {
+    font-size: 1.75rem;
+  }
+}
+
 .document-editor h1, 
 .document-editor h2, 
 .document-editor h3 {
@@ -69,6 +170,13 @@
   gap: 1rem;
 }
 
+/* Large screen export dialog */
+@media (min-width: 1600px) {
+  .export-dialog-large {
+    max-width: 500px !important;
+  }
+}
+
 .export-format-card {
   padding: 1.5rem;
   border-radius: 0.5rem;
@@ -88,12 +196,26 @@
   color: var(--primary-foreground);
 }
 
-/* Two-column layout for document editing */
+/* Two-column layout for document editing, optimized for large screens */
 .document-workspace {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
   height: 100%;
+}
+
+/* Better use of space on large screens */
+@media (min-width: 1920px) {
+  .document-workspace {
+    grid-template-columns: 5fr 7fr;
+  }
+}
+
+@media (min-width: 2560px) {
+  .document-workspace {
+    grid-template-columns: 5fr 8fr;
+    gap: 3rem;
+  }
 }
 
 @media (max-width: 768px) {
@@ -111,6 +233,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+@media (min-width: 1920px) {
+  .document-preview {
+    padding: 3rem;
+  }
+}
+
 /* Fullscreen document mode */
 .fullscreen-document {
   position: fixed;
@@ -124,10 +252,22 @@
   overflow-y: auto;
 }
 
+@media (min-width: 1920px) {
+  .fullscreen-document {
+    padding: 3rem;
+  }
+}
+
 /* Document sidebar */
 .document-sidebar {
   width: 280px;
   border-right: 1px solid var(--border);
   height: 100%;
   overflow-y: auto;
+}
+
+@media (min-width: 1920px) {
+  .document-sidebar {
+    width: 320px;
+  }
 }
