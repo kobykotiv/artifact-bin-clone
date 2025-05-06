@@ -7,6 +7,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { languages } from '@/lib/languages';
 import { type ArtifactData } from '@/lib/services/db';
 import { Save, X } from 'lucide-react';
+import { JsonEditor } from './JsonEditor';
 
 interface ArtifactEditorProps {
   artifact: ArtifactData;
@@ -24,6 +25,40 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
       updatedAt: new Date().toISOString()
     });
     setIsDirty(false);
+  };
+
+  const renderEditor = () => {
+    if (artifact.fileType === 'json' || artifact.language === 'json') {
+      return (
+        <JsonEditor 
+          value={editedArtifact.content} 
+          onChange={(value) => {
+            setEditedArtifact(prev => ({ ...prev, content: value || '' }));
+            setIsDirty(true);
+          }} 
+        />
+      );
+    }
+    
+    return (
+      <Editor
+        height="100%"
+        defaultValue={editedArtifact.content}
+        language={editedArtifact.language}
+        theme="vs-dark"
+        onChange={(value) => {
+          setEditedArtifact(prev => ({ ...prev, content: value || '' }));
+          setIsDirty(true);
+        }}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          fontFamily: 'JetBrains Mono',
+          scrollBeyondLastLine: false,
+          automaticLayout: true
+        }}
+      />
+    );
   };
 
   return (
@@ -78,23 +113,7 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
         </div>
       </CardHeader>
       <CardContent className="p-0 flex-grow">
-        <Editor
-          height="100%"
-          defaultValue={editedArtifact.content}
-          language={editedArtifact.language}
-          theme="vs-dark"
-          onChange={(value) => {
-            setEditedArtifact(prev => ({ ...prev, content: value || '' }));
-            setIsDirty(true);
-          }}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            fontFamily: 'JetBrains Mono',
-            scrollBeyondLastLine: false,
-            automaticLayout: true
-          }}
-        />
+        {renderEditor()}
       </CardContent>
     </>
   );
