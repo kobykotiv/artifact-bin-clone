@@ -12,7 +12,7 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { Plus, Database, Lightbulb, LogIn } from "lucide-react";
 import ProjectGenerator from "@/components/ProjectGenerator"; // Import ProjectGenerator
 import { authService, type AuthState } from "@/lib/services/auth"; // Import auth service
-import { Dashboard } from "@/components/Dashboard"; // Import Dashboard
+import Dashboard from "@/components/Dashboard"; // Corrected Import Dashboard
 
 // Define a constant for the project generator language type
 const PROJECT_GENERATOR_LANG = 'project-generator';

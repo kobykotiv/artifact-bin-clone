@@ -16,6 +16,7 @@ import PseudocodeGenerator from '@/lib/templates/PseudocodeGenerator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GitSidebar } from '../GitSidebar';
 import { SuggestionFeed } from '../SuggestionFeed';
+import { StatsCard } from './StatsCard';
 
 export function DashboardLayout() {
   const { layout, setLayout, 
@@ -235,11 +236,24 @@ export function DashboardLayout() {
         </main>
 
         {/* Right Sidebar Panels */}
-        <div className="flex flex-col w-64 border-l bg-muted/20">
-          {/* Quick Actions */}
-          <Collapsible open={layout.showQuickActions} onOpenChange={(open) => setLayout({ showQuickActions: open })}>
+        <div className="flex flex-col w-64 border-l bg-muted/20 p-2 space-y-4 overflow-y-auto">
+          {/* Stats Card Collapsible */}
+          <Collapsible open={layout.showStats} onOpenChange={(open) => setLayout({ ...layout, showStats: open })}>
             <CollapsibleTrigger asChild>
-              <div className="flex items-center cursor-pointer mb-2">
+              <div className="flex items-center cursor-pointer mb-2 p-2 rounded hover:bg-muted">
+                {layout.showStats ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <span className="ml-2 font-semibold text-lg">Statistics</span>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <StatsCard userArtifacts={artifacts} /> {/* Pass artifacts to StatsCard */}
+            </CollapsibleContent>
+          </Collapsible>
+          
+          {/* Quick Actions */}
+          <Collapsible open={layout.showQuickActions} onOpenChange={(open) => setLayout({ ...layout, showQuickActions: open })}>
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center cursor-pointer mb-2 p-2 rounded hover:bg-muted">
                 {layout.showQuickActions ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 <span className="ml-2 font-semibold text-lg">Quick Actions</span>
               </div>
@@ -293,15 +307,30 @@ export function DashboardLayout() {
 
           {/* Suggestion Feed */}
           {layout.showPromptPanel && (
-            <div className="border-t">
-              <SuggestionFeed onSuggestionSelect={() => {}} />
-            </div>
+            <Collapsible open={layout.showPromptPanel} onOpenChange={(open) => setLayout({...layout, showPromptPanel: open })}>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center cursor-pointer mb-2 p-2 rounded hover:bg-muted">
+                  {layout.showPromptPanel ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <span className="ml-2 font-semibold text-lg">Suggestions</span>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle>Suggestion Feed</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                     <SuggestionFeed onSuggestionSelect={() => {}} />
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* SaaS Strategies Collapsible */}
-          <Collapsible open={layout.showSaaS} onOpenChange={(open) => setLayout({ showSaaS: open })}>
+          <Collapsible open={layout.showSaaS} onOpenChange={(open) => setLayout({ ...layout, showSaaS: open })}>
             <CollapsibleTrigger asChild>
-              <div className="flex items-center cursor-pointer mb-2">
+              <div className="flex items-center cursor-pointer mb-2 p-2 rounded hover:bg-muted">
                 {layout.showSaaS ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 <span className="ml-2 font-semibold text-lg">SaaS Strategies</span>
               </div>

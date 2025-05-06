@@ -10,21 +10,37 @@
 - [x] Folders organization
 - [x] Folder sharing
 - [x] Prompt Library with variable templates
+- [x] Integrated Dashboard:
+  - [x] Main entry point `Dashboard.tsx`
+  - [x] Centralized layout (`DashboardLayout.tsx`)
+  - [x] State management via `DashboardContext.tsx`
+  - [x] Artifact and folder views
+  - [x] Search and filtering capabilities
+  - [x] Statistics display (`StatsCard.tsx`)
+  - [x] Quick Actions panel
+  - [x] SaaS Strategies panel
+  - [x] Git integration panel (conditional)
+  - [x] Suggestion Feed (conditional)
 
 ### In Progress
 - [ ] Enhanced drag-and-drop folder organization
 - [ ] Real-time collaboration
 - [ ] Expanded business guides and templates
 - [ ] Team workspace support
+- [ ] Git integration refinement
+- [ ] Suggestion Feed enhancement
 
 ## Implementation Notes
+
+### Dashboard Refactor
+The dashboard feature is initiated by `Dashboard.tsx`, which serves as an entry point. It utilizes `DashboardProvider` (from `DashboardContext.tsx`) for state management. The actual UI and feature integration are handled by `DashboardLayout.tsx`. This component integrates all core dashboard functionalities, including artifact/folder browsing, search, filtering, statistics, quick actions, SaaS strategies, and conditional panels for Git and suggestions. This modular and context-driven approach enhances maintainability and scalability.
 
 ### Artifact & Folder Organization
 We've implemented a flexible system for artifact organization:
 1. All artifacts can be assigned to folders
 2. Folders can be nested (with parent/child relationships)
 3. Folders can be shared with other users
-4. Drag-and-drop UI for easy organization
+4. Drag-and-drop UI for easy organization (in progress)
 
 ### Template System with Variables
 The new prompt library supports:

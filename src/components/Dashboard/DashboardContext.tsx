@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { dbService, type ArtifactData } from '@/lib/services/db';
-import { authService } from '@/lib/services/auth';
+import { dbService, type ArtifactData, type FolderData } from '@/lib/services/db';
+import { authService, type AuthState } from '@/lib/services/auth';
 import { toast } from 'sonner';
 import { getFileTypeFromLanguage } from '@/lib/utils/fileTypes';
 import { type LayoutState } from './types';
@@ -45,6 +45,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     showExplorer: true,
     showPromptPanel: false,
     showGitPanel: false,
+    showQuickActions: false,
+    showSaaS: false,
+    showStats: true, // Added showStats
     activeTab: 'artifacts',
     tabVisibility: {
       artifacts: true,

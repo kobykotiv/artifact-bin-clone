@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Folder, File, Plus, Share2, MoreVertical, ChevronRight } from 'lucide-react';
-import { FolderData } from '@/lib/models/Folder';
+import { type FolderData } from '@/lib/models/Folder';
 import { dbService } from '@/lib/services/db';
 import { toast } from 'sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
