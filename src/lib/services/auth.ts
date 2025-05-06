@@ -85,19 +85,48 @@ class AuthService {
 
   async login(email: string, password: string): Promise<AuthState> {
     try {
+      // Hardcoded admin credentials
+      if (email === 'admin' && password === 'Passw0rd123') {
+        const adminUser: UserData = {
+          id: 'admin-id',
+          username: 'Admin',
+          email: 'admin@example.com',
+          role: 'admin',
+          avatarSeed: 'admin-seed',
+          skills: [],
+          interests: [],
+          preferredLLMs: [],
+          promptEngineering: { totalPrompts: 0, successfulPrompts: 0, challengesWon: 0, reputation: 0 },
+          contributions: { totalContributions: 0, artifacts: 0, codeReviews: 0, documentation: 0, promptEngineering: 0 },
+          knowledgeGraph: { nodes: [], edges: [] },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const newState: AuthState = {
+          isAuthenticated: true,
+          user: adminUser,
+          isGuest: false,
+        };
+
+        this.updateAuthState(newState);
+        return newState;
+      }
+
+      // Existing logic for other users
       const user = await dbService.getUserByEmail(email);
       if (!user) {
         throw new Error('User not found');
       }
-      
+
       // In a real app, you'd verify the password here
-      
+
       const newState: AuthState = {
         isAuthenticated: true,
         user,
-        isGuest: false
+        isGuest: false,
       };
-      
+
       this.updateAuthState(newState);
       return newState;
     } catch (error) {
