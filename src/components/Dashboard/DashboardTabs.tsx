@@ -6,6 +6,7 @@ import { FolderView } from './FolderView';
 import PseudocodeGenerator from '@/lib/templates/PseudocodeGenerator';
 import { ArtifactData, FolderData } from '@/lib/services/db';
 import { LayoutState } from './types';
+import { StartupOrgGenerator } from '../StartupOrgGenerator';
 
 interface DashboardTabsProps {
   layout: LayoutState;
@@ -97,6 +98,18 @@ export function DashboardTabs({
               <ChevronRight className="ml-2 h-4 w-4" />
             }
           </TabsTrigger>
+
+          <TabsTrigger 
+            value="organization" 
+            className="flex items-center"
+            onClick={() => setLayout({ tabVisibility: { ...layout.tabVisibility, organization: !layout.tabVisibility.organization } })}
+          >
+            Organization
+            {layout.tabVisibility.organization ? 
+              <ChevronDown className="ml-2 h-4 w-4" /> : 
+              <ChevronRight className="ml-2 h-4 w-4" />
+            }
+          </TabsTrigger>
         </div>
       </TabsList>
       
@@ -135,6 +148,18 @@ export function DashboardTabs({
               setLayout({ 
                 activeTab: "artifacts", 
                 tabVisibility: { ...layout.tabVisibility, pseudocode: false } 
+              });
+            }}
+          />
+        )}
+
+        {layout.activeTab === "organization" && layout.tabVisibility.organization && (
+          <StartupOrgGenerator
+            onSave={(data) => {
+              createArtifact('organization', data);
+              setLayout({ 
+                activeTab: "artifacts", 
+                tabVisibility: { ...layout.tabVisibility, organization: false } 
               });
             }}
           />

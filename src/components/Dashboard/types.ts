@@ -4,11 +4,12 @@ export interface LayoutState {
   showGitPanel: boolean;
   showQuickActions: boolean;
   showSaaS: boolean;
-  showStats: boolean; // Added showStats
+  showStats: boolean;
   activeTab: string;
   tabVisibility: {
     artifacts: boolean;
     folders: boolean;
     pseudocode: boolean;
+    organization?: boolean;
   };
 }

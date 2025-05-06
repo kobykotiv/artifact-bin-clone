@@ -52,6 +52,11 @@
   }
 }
 
+/* File menu styles */
+.file-menu-trigger {
+  font-weight: 500;
+}
+
 /* Theme variants for sidebars */
 .sticky-left-sidebar.dark,
 .sticky-right-sidebar.dark {

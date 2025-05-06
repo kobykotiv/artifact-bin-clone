@@ -147,22 +147,44 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const newArtifact: Partial<ArtifactData> = {
-        userId: authState.user.id,
-        title: `New ${type}`,
-        language: type === 'code' ? 'javascript' : 'project-spec',
-        fileType: type === 'code' ? 'js' : 'json',
-        content: type === 'code' ? '' : JSON.stringify(template || {}, null, 2),
-        tags: [type],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        avatarSeed: crypto.randomUUID()
-      };
+      let newArtifact: Partial<ArtifactData>;
+      
+      // Handle special case for startup organization
+      if (type === 'organization') {
+        newArtifact = {
+          userId: authState.user.id,
+          title: `${template?.companyName || 'New'} Organization Structure`,
+          language: 'project-spec',
+          fileType: 'json',
+          content: JSON.stringify({
+            type: 'startup-organization',
+            ...template
+          }, null, 2),
+          tags: ['organization', 'structure', template?.orgStructure],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          avatarSeed: crypto.randomUUID()
+        };
+      } else {
+        // Existing code for other artifact types
+        newArtifact = {
+          userId: authState.user.id,
+          title: `New ${type}`,
+          language: type === 'code' ? 'javascript' : 'project-spec',
+          fileType: type === 'code' ? 'js' : 'json',
+          content: type === 'code' ? template || '' : JSON.stringify(template || {}, null, 2),
+          tags: [type],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          avatarSeed: crypto.randomUUID()
+        };
+      }
 
       const created = await dbService.createArtifact(newArtifact);
       setArtifacts(prev => [created, ...prev]);
       setSelectedArtifactId(created.id);
       toast.success(`Created new ${type}`);
+      return created;
     } catch (error) {
       console.error("Failed to create artifact:", error);
       toast.error("Failed to create artifact");

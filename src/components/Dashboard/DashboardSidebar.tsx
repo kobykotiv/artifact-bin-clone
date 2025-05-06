@@ -79,68 +79,6 @@ export function DashboardSidebar({
                 <StatsCard userArtifacts={artifacts} />
               </CollapsibleContent>
             </Collapsible>
-            
-            {/* Quick Actions */}
-            <Collapsible open={layout.showQuickActions} onOpenChange={(open) => setLayout({ ...layout, showQuickActions: open })}>
-              <CollapsibleTrigger asChild>
-                <div className="flex items-center cursor-pointer mb-2 p-2 rounded hover:bg-muted">
-                  {layout.showQuickActions ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <span className="ml-2 font-semibold text-lg">Quick Actions</span>
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <Card className="sticky top-24">
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {createArtifact && (
-                      <>
-                        <Button 
-                          className="w-full justify-start" 
-                          onClick={() => createArtifact('code')}
-                        >
-                          <ChevronRight className="mr-2 h-4 w-4" />
-                          New Code Snippet
-                        </Button>
-                        <Button 
-                          className="w-full justify-start" 
-                          variant="secondary"
-                          onClick={() => createArtifact('project')}
-                        >
-                          <ChevronRight className="mr-2 h-4 w-4" />
-                          New Project
-                        </Button>
-                      </>
-                    )}
-                    
-                    {setSelectedFolderId && (
-                      <Button 
-                        className="w-full justify-start" 
-                        variant="outline"
-                        onClick={() => setSelectedFolderId(null)}
-                      >
-                        <ChevronRight className="mr-2 h-4 w-4" />
-                        View All Files
-                      </Button>
-                    )}
-                    
-                    {setLayout && (
-                      <Button 
-                        className="w-full justify-start"
-                        variant="outline"
-                        onClick={() => {
-                          setLayout({ activeTab: "pseudocode", tabVisibility: { ...layout.tabVisibility, pseudocode: true } });
-                        }}
-                      >
-                        <ChevronRight className="mr-2 h-4 w-4" />
-                        Generate Pseudocode
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              </CollapsibleContent>
-            </Collapsible>
 
             {/* Git Panel */}
             {layout.showGitPanel && <GitSidebar />}

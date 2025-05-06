@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDashboard } from './DashboardContext';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowUpDown, Search, FolderOpen, BarChart4 } from 'lucide-react';
+import { 
+  Plus, 
+  ArrowUpDown, 
+  Search, 
+  FolderOpen, 
+  BarChart4, 
+  FileText,
+  ChevronDown 
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +21,15 @@ import { DocumentExporter } from '../DocumentExporter';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardTabs } from './DashboardTabs';
 import { UsageStatisticsPage } from '../UsageStatistics/UsageStatisticsPage';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { StartupOrgGenerator } from '../StartupOrgGenerator';
 
 export function DashboardLayout() {
   const { layout, setLayout, 
@@ -47,8 +64,9 @@ export function DashboardLayout() {
   // State for navigation theme
   const [navTheme, setNavTheme] = useState<'light' | 'dark'>('light');
   
-  // State for showing statistics page
+  // State for showing specialized pages/modals
   const [showStatistics, setShowStatistics] = useState(false);
+  const [showStartupOrgGenerator, setShowStartupOrgGenerator] = useState(false);
 
   // Filter artifacts
   const filteredArtifacts = artifacts.filter(artifact => {
@@ -119,13 +137,72 @@ export function DashboardLayout() {
     );
   }
 
+  // If showing startup org generator, render that component
+  if (showStartupOrgGenerator) {
+    return (
+      <div className="h-screen p-4 overflow-auto">
+        <div className="mb-4">
+          <Button variant="outline" onClick={() => setShowStartupOrgGenerator(false)}>
+            Back to Dashboard
+          </Button>
+        </div>
+        <StartupOrgGenerator 
+          onSave={(data) => {
+            createArtifact('organization', data);
+            setShowStartupOrgGenerator(false);
+          }} 
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header Bar */}
       <div className="border-b bg-background p-2 flex-shrink-0 sticky-header">
         <div className="large-screen-container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <h1 className="font-bold text-lg">Artifact Bin</h1>
+            
+            {/* File Menu (formerly Quick Actions) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="file-menu-trigger">
+                  <FileText className="mr-2 h-4 w-4" />
+                  File
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Create New</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => createArtifact('code')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Code Snippet
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('project')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Project
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setLayout({ activeTab: "pseudocode", tabVisibility: { ...layout.tabVisibility, pseudocode: true } })}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Generate Pseudocode
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowStartupOrgGenerator(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Startup Organization
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setSelectedFolderId(null)}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  View All Files
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Button 
               variant="ghost" 
               size="sm"
