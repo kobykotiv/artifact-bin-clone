@@ -210,9 +210,10 @@ export function DashboardLayout() {
                     {layout.activeTab === "pseudocode" && layout.tabVisibility.pseudocode && (
                       <PseudocodeGenerator
                         onGenerate={(code: string) => {
-                          createArtifact('code', code);
-                        }}
-                      />
+                            createArtifact('code', code);
+                        } } onClose={function(): void {
+                            throw new Error('Function not implemented.');
+                        } }/>
                     )}
                   </div>
                 </Tabs>

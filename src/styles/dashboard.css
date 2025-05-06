@@ -1,0 +1,133 @@
+/* Magazine-style Dashboard Layout Styles */
+
+.magazine-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.magazine-article {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.magazine-article:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.magazine-article-header {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.magazine-article-content {
+  padding: 1.25rem;
+}
+
+.magazine-article-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Document Editor Styles */
+.document-editor {
+  font-family: 'Georgia', serif;
+  line-height: 1.8;
+}
+
+.document-editor h1, 
+.document-editor h2, 
+.document-editor h3 {
+  font-family: system-ui, -apple-system, sans-serif;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.document-editor p {
+  margin-bottom: 1.2em;
+}
+
+.document-editor blockquote {
+  border-left: 4px solid var(--border);
+  padding-left: 1rem;
+  font-style: italic;
+  color: var(--muted-foreground);
+  margin: 1.5rem 0;
+}
+
+/* Export Dialog Styles */
+.export-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.export-format-card {
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.export-format-card:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.export-format-card.selected {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Two-column layout for document editing */
+.document-workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .document-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Preview panel */
+.document-preview {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Fullscreen document mode */
+.fullscreen-document {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 100;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* Document sidebar */
+.document-sidebar {
+  width: 280px;
+  border-right: 1px solid var(--border);
+  height: 100%;
+  overflow-y: auto;
+}
