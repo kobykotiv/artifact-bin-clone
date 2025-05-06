@@ -63,6 +63,20 @@ This document outlines the global instructions for working with the tech stack u
 1. Write unit tests for all new components and utilities.
 2. Use mock data for testing database interactions.
 3. Run tests locally using `bun test`.
+4. Keep directory structure organized:
+   - `/src/__tests__` for unit tests.
+   - `/cypress` for E2E tests.
+5. Use `@testing-library/react` for testing React components.
+6. Use `jest` for mocking and assertions.
+7. Use `cypress` for E2E testing.
+8. Use `bun test` to run tests locally.
+9. Use `bun run test:watch` for continuous testing during development.
+10. Use `bun run test:coverage` to check test coverage.
+11. Use `bun run test:lint` to check for linting errors in tests.
+12. Use `bun run test:build` to check for build errors in tests.
+13. Use `bun run test:debug` to debug tests.
+14. Use `bun run test:report` to generate test reports.
+
 
 ---
 
