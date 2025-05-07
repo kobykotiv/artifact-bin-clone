@@ -6,6 +6,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import {
@@ -19,13 +24,22 @@ import {
   Code,
   BarChart,
   ListTodo,
-  Brain, // For AI/ML or general prompts
-  Box, // For 3D
-  Brush, // For themes
-  Gamepad2, // For games
-  BookOpen // For Startup Org Plan
+  Brain, 
+  Box, 
+  Brush, 
+  Gamepad2, 
+  BookOpen,
+  Settings2,
+  LayoutGrid,
+  Globe,
+  Smartphone,
+  Rocket,
+  TrendingUp,
+  Briefcase,
+  FolderOpen,
+  Save
 } from 'lucide-react';
-import { LayoutSettings } from './Dashboard'; // Assuming LayoutSettings is here
+import { LayoutSettings } from './Dashboard'; 
 
 interface QuickActionsProps {
   createArtifact: (
@@ -38,9 +52,13 @@ interface QuickActionsProps {
   setLayout: (layout: LayoutSettings) => void;
   layout: LayoutSettings;
   setShowStartupOrgGenerator: (show: boolean) => void;
-  // Add new props for showing specific generators
-  onShowPseudocodeGenerator: (type: 'startupOrgPlan' | 'cardGameDesign' | 'shopifyTheme' | 'boardGameDesign' | 'language') => void;
-  onShowPromptGenerator: (type: 'threeJsApp' | 'wordpressTheme' | 'websiteDesign' | 'mobileAppConcept' | 'aiMlAppConcept' | 'businessPlan' | 'marketingPlan' | 'techStack' | 'startupFoundation' | 'saaSModelCanvas') => void;
+  onShowPseudocodeGenerator: (type: 'startupOrgPlan' | 'cardGameDesign' | 'shopifyTheme' | 'boardGameDesign' | 'language' | 'startup') => void;
+  onShowPromptGenerator: (type: PromptType) => void; // Use PromptType from PromptGenerator
+  onShowStatistics: () => void;
+  onShowCustomTemplateManager: () => void; // New prop
+  activeTab: string; // To show relevant guides
+  setActiveTab: (tabId: string) => void; // To switch to guides
+  onSaveAll?: () => void; // Optional: if a global save action is desired
 }
 
 export function QuickActions({
@@ -49,7 +67,12 @@ export function QuickActions({
   layout,
   setShowStartupOrgGenerator,
   onShowPseudocodeGenerator,
-  onShowPromptGenerator
+  onShowPromptGenerator,
+  onShowStatistics,
+  onShowCustomTemplateManager,
+  activeTab,
+  setActiveTab,
+  onSaveAll
 }: QuickActionsProps) {
   return (
     <DropdownMenu>
@@ -60,121 +83,182 @@ export function QuickActions({
           <ChevronDown className="ml-1 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64"> {/* Increased width for more items */}
-        <DropdownMenuLabel>Create New Artifact</DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-72"> {/* Increased width */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>New Artifact</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => createArtifact('code')}>
+            <Code className="mr-2 h-4 w-4" />
+            Code Snippet
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => createArtifact('project')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Project Specification
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => createArtifact('code')}>
-          <Code className="mr-2 h-4 w-4" />
-          Code Snippet
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => createArtifact('project')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Project Specification
-        </DropdownMenuItem>
-        
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Business Planning</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => createArtifact('marketing')}>
-          <BarChart className="mr-2 h-4 w-4" />
-          Marketing Plan
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => createArtifact('fundraising')}>
-          <DollarSign className="mr-2 h-4 w-4" /> {/* Changed icon for variety */}
-          Fundraising Plan
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => createArtifact('budget')}>
-          <DollarSign className="mr-2 h-4 w-4" />
-          Budget Plan
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => createArtifact('shares')}>
-          <PieChart className="mr-2 h-4 w-4" />
-          Shares Plan
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => createArtifact('startup')}>
-          <Building className="mr-2 h-4 w-4" />
-          Startup Legal Plan
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => createArtifact('objectives')}>
-          <Target className="mr-2 h-4 w-4" />
-          Objectives Plan (OKRs)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setShowStartupOrgGenerator(true)}>
-          <Building className="mr-2 h-4 w-4" />
-          Startup Org Structure
-        </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Pseudocode & Specs</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('language')}>
-          <Code className="mr-2 h-4 w-4" />
-          Generic Pseudocode
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('startupOrgPlan')}>
-          <BookOpen className="mr-2 h-4 w-4" />
-          Startup Org Plan (Pseudo)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('shopifyTheme')}>
-          <Brush className="mr-2 h-4 w-4" />
-          Shopify Theme Plan (Pseudo)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('boardGameDesign')}>
-          <Gamepad2 className="mr-2 h-4 w-4" />
-          Board Game Design (Pseudo)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('cardGameDesign')}>
-          <Gamepad2 className="mr-2 h-4 w-4" /> {/* Could use a different icon like Layers */}
-          Card Game Design (Pseudo)
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Prompt Generators</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => onShowPromptGenerator('websiteDesign')}>
-          <Globe className="mr-2 h-4 w-4" />
-          Website Design Brief
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPromptGenerator('mobileAppConcept')}>
-          <Smartphone className="mr-2 h-4 w-4" />
-          Mobile App Concept
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPromptGenerator('aiMlAppConcept')}>
-          <Brain className="mr-2 h-4 w-4" />
-          AI/ML App Concept
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPromptGenerator('threeJsApp')}>
-          <Box className="mr-2 h-4 w-4" />
-          Faux 3D App (Three.js)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onShowPromptGenerator('wordpressTheme')}>
-          <Brush className="mr-2 h-4 w-4" />
-          WordPress Theme Brief
-        </DropdownMenuItem>
-        {/* Add other prompt generator links here if needed */}
-        <DropdownMenuItem onClick={() => onShowPromptGenerator('startupFoundation')}>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Business Planning</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => createArtifact('marketing')}>
+            <BarChart className="mr-2 h-4 w-4" />
+            Marketing Plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => createArtifact('fundraising')}>
+            <DollarSign className="mr-2 h-4 w-4" />
+            Fundraising Plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => createArtifact('budget')}>
+            <DollarSign className="mr-2 h-4 w-4" />
+            Budget Plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => createArtifact('shares')}>
+            <PieChart className="mr-2 h-4 w-4" />
+            Shares Plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('startup')}>
             <Building className="mr-2 h-4 w-4" />
-            Startup Foundation Prompt
-        </DropdownMenuItem>
-         <DropdownMenuItem onClick={() => onShowPromptGenerator('saaSModelCanvas')}>
-            <LayoutGrid className="mr-2 h-4 w-4" />
-            SaaS Model Canvas Prompt
-        </DropdownMenuItem>
-
-
+            Startup Plan (Outline)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => createArtifact('objectives')}>
+            <Target className="mr-2 h-4 w-4" />
+            Objectives Plan (OKRs)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowStartupOrgGenerator(true)}>
+            <LayoutGrid className="mr-2 h-4 w-4" /> {/* Changed Icon */}
+            Startup Org Structure
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Project Management</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => createArtifact('sprint')}>
-          <ListTodo className="mr-2 h-4 w-4" />
-          Sprint Plan
-        </DropdownMenuItem>
+
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Generators</DropdownMenuLabel>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Code className="mr-2 h-4 w-4" />
+              <span>Pseudocode & Specs</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('language')}>
+                  Generic Pseudocode
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('startupOrgPlan')}>
+                  Startup Org Plan (Dummies Guide)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('shopifyTheme')}>
+                  Shopify Theme Plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('boardGameDesign')}>
+                  Board Game Design
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('cardGameDesign')}>
+                  Card Game Design
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Brain className="mr-2 h-4 w-4" />
+              <span>Prompt Generators</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('startupFoundation')}>
+                  <Building className="mr-2 h-4 w-4" /> Startup Foundation
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('saaSModelCanvas')}>
+                  <LayoutGrid className="mr-2 h-4 w-4" /> SaaS Model Canvas
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('businessPlan')}>
+                  <Briefcase className="mr-2 h-4 w-4" /> Business Plan Sections
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('marketingPlan')}>
+                  <BarChart className="mr-2 h-4 w-4" /> Marketing Strategy
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('techStack')}>
+                  <Code className="mr-2 h-4 w-4" /> Tech Stack Design
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('websiteDesign')}>
+                  <Globe className="mr-2 h-4 w-4" /> Website Design Brief
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('mobileAppConcept')}>
+                  <Smartphone className="mr-2 h-4 w-4" /> Mobile App Concept
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('aiMlAppConcept')}>
+                  <Brain className="mr-2 h-4 w-4" /> AI/ML App Concept
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('threeJsApp')}>
+                  <Box className="mr-2 h-4 w-4" /> Faux 3D App (Three.js)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onShowPromptGenerator('wordpressTheme')}>
+                  <Brush className="mr-2 h-4 w-4" /> WordPress Theme Brief
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
         
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Guides & Tools</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setActiveTab('startupOrgGuide')}>
+            <BookOpen className="mr-2 h-4 w-4" /> Startup Organization Guide
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('saaSBootstrapperGuide')}>
+            <Rocket className="mr-2 h-4 w-4" /> SaaS Bootstrapper's Guide
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('saaSFinancialFreedomGuide')}>
+            <DollarSign className="mr-2 h-4 w-4" /> SaaS Financial Freedom Guide
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('startupScalingGuide')}>
+            <TrendingUp className="mr-2 h-4 w-4" /> Startup Scaling Guide
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setActiveTab('corporation')}>
+            <Briefcase className="mr-2 h-4 w-4" /> Corporation Setup Guide
+          </DropdownMenuItem>
+           <DropdownMenuItem onClick={() => setActiveTab('termsheet')}>
+            <FileText className="mr-2 h-4 w-4" /> Term Sheet Guide
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>View Options</DropdownMenuLabel>
-        <DropdownMenuItem 
-          onClick={() => setLayout({ activeTab: "pseudocode", tabVisibility: { ...layout.tabVisibility, pseudocode: true } })}
-        >
-          <Code className="mr-2 h-4 w-4" />
-          Show Pseudocode Tab
+
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Project Management</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => createArtifact('sprint')}>
+            <ListTodo className="mr-2 h-4 w-4" />
+            Sprint Plan
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>View Options</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => onShowStatistics()}>
+            <BarChart className="mr-2 h-4 w-4" /> Usage Statistics
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setLayout({ ...layout, showExplorer: !layout.showExplorer })}>
+            <FolderOpen className="mr-2 h-4 w-4" />
+            {layout.showExplorer ? "Hide Explorer" : "Show Explorer"}
+          </DropdownMenuItem>
+          {/* Add other layout/view options if necessary */}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onShowCustomTemplateManager}>
+          <Settings2 className="mr-2 h-4 w-4" />
+          Manage Custom Templates
         </DropdownMenuItem>
-        {/* Add other layout/view options if necessary */}
+        {onSaveAll && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onSaveAll}>
+              <Save className="mr-2 h-4 w-4" />
+              Save All Changes
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -24,7 +24,14 @@ import {
   Smartphone,
   Brain,
   Store,
-  Dice5
+  Dice5,
+  Target,
+  Layers,
+  Building2,
+  Gamepad2,
+  Brush,
+  Code,
+  ListTodo
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -45,7 +52,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { StartupOrgGenerator } from '../StartupOrgGenerator';
+import { StartupOrgGenerator } from '@/components/StartupOrgGenerator';
+import { StartupOrganizationGuideTab } from '@/components/Guides/StartupOrganizationGuideTab';
+import { SaasBootstrapperGuideTab } from '@/components/Guides/SaaSBootstrapperGuideTab';
+import { StartupScalingGuideTab } from '@/components/Guides/StartupScalingGuideTab';
+import { CorporationSetupGuideTab } from '@/components/Guides/CorporationSetupGuideTab';
+import { TermSheetGuideTab } from '@/components/Guides/TermSheetGuideTab';
+import { SaaSFinancialFreedomGuideTab } from '@/components/guides/SaaSFinancialFreedomGuideTab'; // New Guide Tab
+import { PseudocodeViewer } from '@/components/PseudocodeViewer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { PromptGenerator } from '@/components/PromptGenerator'; // Assuming PromptGenerator is a component
+import { PseudocodeGenerator } from '@/lib/templates/PseudocodeGenerator'; // Assuming PseudocodeGenerator is a component
 
 export function DashboardLayout() {
   const { layout, setLayout, 
@@ -85,6 +102,13 @@ export function DashboardLayout() {
   const [showStartupOrgGenerator, setShowStartupOrgGenerator] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [showCustomTemplateManager, setShowCustomTemplateManager] = useState(false);
+
+  const [showPromptGeneratorModal, setShowPromptGeneratorModal] = useState(false);
+  const [activePromptTypeForModal, setActivePromptTypeForModal] = useState<string | null>(null);
+
+  // New state for PseudocodeGenerator modal
+  const [showPseudocodeGeneratorModal, setShowPseudocodeGeneratorModal] = useState(false);
+  const [activePseudocodeTypeForModal, setActivePseudocodeTypeForModal] = useState<string | null>(null);
 
   // Filter artifacts
   const filteredArtifacts = artifacts.filter(artifact => {
@@ -174,6 +198,86 @@ export function DashboardLayout() {
     );
   }
 
+  // Handlers for PromptGenerator modal
+  const openPromptGeneratorModal = (promptType: string) => {
+    setActivePromptTypeForModal(promptType);
+    setShowPromptGeneratorModal(true);
+  };
+  const closePromptGeneratorModal = () => {
+    setShowPromptGeneratorModal(false);
+    setActivePromptTypeForModal(null);
+  };
+
+  // Handlers for PseudocodeGenerator modal
+  const openPseudocodeGeneratorModal = (generatorType: string) => {
+    setActivePseudocodeTypeForModal(generatorType);
+    setShowPseudocodeGeneratorModal(true);
+  };
+  const closePseudocodeGeneratorModal = () => {
+    setShowPseudocodeGeneratorModal(false);
+    setActivePseudocodeTypeForModal(null);
+  };
+
+  const createArtifact = async (
+    type: string,
+    content?: any, // Changed from string to any to accommodate various artifact types
+    title?: string,
+    language?: string,
+    metadata?: any
+  ) => {
+    if (!authState.user) {
+      toast.error('You must be logged in to create artifacts.');
+      return;
+    }
+
+    let artifactTitle = title || `New ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    let artifactContent = content || '';
+    let artifactLanguage = language;
+    let artifactMetadata = metadata || {};
+
+    if (type === 'prompt') {
+      artifactTitle = title || `Prompt: ${metadata?.promptName || 'Untitled'}`;
+      artifactContent = content; // content is the generated prompt string
+      artifactMetadata = { ...metadata, promptType: activePromptTypeForModal };
+      closePromptGeneratorModal();
+    } else if (type === 'pseudocode') {
+      artifactTitle = title || `Pseudocode: ${metadata?.generatorType || 'Untitled'}`;
+      artifactContent = content; // content is the generated pseudocode string
+      artifactLanguage = metadata?.language || 'plaintext'; // Or derive from pseudocode type
+      artifactMetadata = { ...metadata, pseudocodeType: activePseudocodeTypeForModal };
+      closePseudocodeGeneratorModal();
+    } else if (type === 'organization') {
+        artifactTitle = title || `Startup Org: ${content.companyName || 'Untitled'}`;
+        // content is already the StartupOrgData object
+        artifactMetadata = { ...metadata, orgData: content };
+        setShowStartupOrgGenerator(false); // Close its specific modal if it has one
+    }
+
+    try {
+      const newArtifact = await dbService.createArtifact({
+        userId: authState.user.id,
+        title: artifactTitle,
+        type: type as ArtifactData['type'],
+        content: typeof artifactContent === 'string' ? artifactContent : JSON.stringify(artifactContent),
+        language: artifactLanguage,
+        folderId: selectedFolderId,
+        metadata: artifactMetadata,
+      });
+      setArtifacts(prev => [newArtifact, ...prev]);
+      setSelectedArtifactId(newArtifact.id);
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} artifact created: ${newArtifact.title}`);
+      
+      // Close modals after creation
+      if (showPromptGeneratorModal) closePromptGeneratorModal();
+      if (showPseudocodeGeneratorModal) closePseudocodeGeneratorModal();
+      if (showStartupOrgGenerator) setShowStartupOrgGenerator(false);
+
+    } catch (error) {
+      console.error('Failed to create artifact:', error);
+      toast.error(`Failed to create ${type} artifact.`);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header Bar */}
@@ -224,44 +328,44 @@ export function DashboardLayout() {
                   <Building className="mr-2 h-4 w-4" />
                   Startup Plan Outline {/* Triggers PseudocodeGenerator */}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => showPromptGenerator('saaSModelCanvas')}>
+                <DropdownMenuItem onClick={() => openPromptGeneratorModal('saaSModelCanvas')}>
                   <LayoutGrid className="mr-2 h-4 w-4" />
                   SaaS Model Canvas Prompt
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Creative & Technical Generators</DropdownMenuLabel> {/* New Sub-label */}
-                <DropdownMenuItem onClick={() => showPromptGenerator('websiteDesign')}>
+                <DropdownMenuItem onClick={() => openPromptGeneratorModal('websiteDesign')}>
                   <Globe className="mr-2 h-4 w-4" /> {/* New Icon */}
                   Website Design Prompt
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => showPromptGenerator('mobileAppConcept')}>
+                <DropdownMenuItem onClick={() => openPromptGeneratorModal('mobileAppConcept')}>
                   <Smartphone className="mr-2 h-4 w-4" /> {/* New Icon */}
                   Mobile App Concept Prompt
                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => showPromptGenerator('aiMlAppConcept')}>
+                 <DropdownMenuItem onClick={() => openPromptGeneratorModal('aiMlAppConcept')}>
                   <Brain className="mr-2 h-4 w-4" /> {/* New Icon */}
                   AI/ML App Concept Prompt
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createArtifact('shopifyTheme')}> {/* Triggers PseudocodeGenerator */}
+                <DropdownMenuItem onClick={() => openPseudocodeGeneratorModal('shopifyTheme')}> {/* Triggers PseudocodeGenerator */}
                   <Store className="mr-2 h-4 w-4" /> {/* New Icon */}
                   Shopify Theme Plan
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createArtifact('boardGameDesign')}> {/* Triggers PseudocodeGenerator */}
+                <DropdownMenuItem onClick={() => openPseudocodeGeneratorModal('boardGameDesign')}> {/* Triggers PseudocodeGenerator */}
                   <Dice5 className="mr-2 h-4 w-4" /> {/* New Icon */}
                   Board Game Design
                 </DropdownMenuItem>
                 {/* Placeholder for more generators */}
                 {/* 
-                <DropdownMenuItem onClick={() => showPromptGenerator('threeJsSceneConcept')}>
+                <DropdownMenuItem onClick={() => openPromptGeneratorModal('threeJsSceneConcept')}>
                   <Box className="mr-2 h-4 w-4" />
                   3D Scene (Three.js) Prompt
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => showPromptGenerator('wordpressThemeBrief')}>
+                <DropdownMenuItem onClick={() => openPromptGeneratorModal('wordpressThemeBrief')}>
                   <PenTool className="mr-2 h-4 w-4" />
                   WordPress Theme Brief
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createArtifact('cardGameDesign')}>
+                <DropdownMenuItem onClick={() => openPseudocodeGeneratorModal('cardGameDesign')}>
                   <Layers className="mr-2 h-4 w-4" />
                   Card Game Design
                 </DropdownMenuItem>
@@ -280,6 +384,10 @@ export function DashboardLayout() {
                 <DropdownMenuItem onClick={() => setActiveTab('saaSBootstrapperGuide')}> {/* New Item */}
                   <Rocket className="mr-2 h-4 w-4" /> {/* Changed Icon */}
                   SaaS Bootstrapper's Guide
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('saaSFinancialFreedomGuide')}>
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  SaaS Financial Freedom Guide
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveTab('startupScalingGuide')}> {/* New Item */}
                   <TrendingUp className="mr-2 h-4 w-4" /> {/* Changed Icon */}
@@ -411,6 +519,55 @@ export function DashboardLayout() {
           setSelectedFolderId={setSelectedFolderId}
         />
       </div>
+
+      {showStartupOrgGenerator && (
+        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center">
+          <StartupOrgGenerator 
+            onSave={(data) => createArtifact('organization', data)} 
+          />
+        </div>
+      )}
+
+      {/* Prompt Generator Modal */}
+      <Dialog open={showPromptGeneratorModal} onOpenChange={setShowPromptGeneratorModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Generate Prompt: {activePromptTypeForModal ? activePromptTypeForModal.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) : ''}</DialogTitle>
+            <DialogDescription>Fill in the details below to generate a tailored prompt.</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] p-1">
+            {activePromptTypeForModal && (
+              <PromptGenerator 
+                // This component needs to be adapted to take an initial type and an onSave/onGenerate callback
+                // For now, we assume it can be configured or will use its internal state based on a prop
+                // This is a placeholder for how it would be integrated.
+                // It should call createArtifact('prompt', generatedPromptString, title, null, { promptName: activePromptTypeForModal, inputs: formValues })
+              />
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pseudocode Generator Modal */}
+      <Dialog open={showPseudocodeGeneratorModal} onOpenChange={setShowPseudocodeGeneratorModal}>
+        <DialogContent className="max-w-4xl"> {/* Adjusted size for PseudocodeGenerator */}
+          <DialogHeader>
+            <DialogTitle>Generate Pseudocode/Spec: {activePseudocodeTypeForModal ? activePseudocodeTypeForModal.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) : ''}</DialogTitle>
+            <DialogDescription>Configure the details to generate your specification or pseudocode.</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[80vh] p-1"> {/* Increased max height */}
+            {activePseudocodeTypeForModal && (
+              <PseudocodeGenerator
+                initialGenerationType={activePseudocodeTypeForModal as any} // Cast as any for now
+                onGenerate={(code, metadata) => {
+                  createArtifact('pseudocode', code, `Pseudocode: ${metadata?.type || activePseudocodeTypeForModal}`, metadata?.language, { generatorType: activePseudocodeTypeForModal, ...metadata });
+                }}
+                onClose={closePseudocodeGeneratorModal}
+              />
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

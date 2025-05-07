@@ -12,10 +12,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { startupForDummiesGuide } from '@/lib/businessGuides/startupForDummiesGuide';
 
+export type PseudocodeGenerationType = 'language' | 'startup' | 'shopifyTheme' | 'boardGameDesign' | 'startupOrgPlan' | 'cardGameDesign';
+
 interface PseudocodeGeneratorProps {
-  onGenerate: (code: string, metadata: any) => void;
+  onSave: (code: string, metadata: { type: PseudocodeGenerationType, inputs: any, language?: string }) => void; // Changed onGenerate to onSave
   onClose: () => void;
-  initialGenerationType?: 'language' | 'startup' | 'shopifyTheme' | 'boardGameDesign' | 'startupOrgPlan' | 'cardGameDesign'; // Added new types
+  initialGenerationType?: PseudocodeGenerationType;
 }
 
 const languageOptions = [
@@ -88,8 +90,8 @@ type BoardGameFormValues = z.infer<typeof boardGameFormSchema>;
 type StartupOrgPlanFormValues = z.infer<typeof startupOrgPlanFormSchema>; // New
 type CardGameFormValues = z.infer<typeof cardGameFormSchema>; // New
 
-export const PseudocodeGenerator = ({ onGenerate, onClose, initialGenerationType = 'language' }: PseudocodeGeneratorProps) => {
-  const [generationType, setGenerationType] = useState<'language' | 'startup' | 'shopifyTheme' | 'boardGameDesign' | 'startupOrgPlan' | 'cardGameDesign'>(initialGenerationType); // Extended
+export const PseudocodeGenerator = ({ onSave, onClose, initialGenerationType = 'language' }: PseudocodeGeneratorProps) => {
+  const [generationType, setGenerationType] = useState<PseudocodeGenerationType>(initialGenerationType); // Extended
   const [language, setLanguage] = useState('javascript');
   const [generatedCode, setGeneratedCode] = useState('');
 
@@ -135,7 +137,9 @@ export const PseudocodeGenerator = ({ onGenerate, onClose, initialGenerationType
       businessName: '',
       ...startupForDummiesGuide.steps.reduce((acc, step) => {
         Object.keys(step.placeholders).forEach(placeholderKey => {
-          acc[placeholderKey] = '';
+          // Use default values from templateVariables if they exist for a cleaner form start
+          const guidePlaceholderKey = step.placeholders[placeholderKey as keyof typeof step.placeholders].replace(/{{|}}/g, "");
+          acc[placeholderKey] = startupForDummiesGuide.templateVariables[guidePlaceholderKey as keyof typeof startupForDummiesGuide.templateVariables] || '';
         });
         return acc;
       }, {} as Record<string, string>)
@@ -154,6 +158,14 @@ export const PseudocodeGenerator = ({ onGenerate, onClose, initialGenerationType
       setupInstructions: '',
     },
   });
+
+  // useEffect to reset state when initialGenerationType changes
+  React.useEffect(() => {
+    setGenerationType(initialGenerationType);
+    setGeneratedCode('');
+    // Optionally reset forms, though they might re-initialize with defaultValues anyway
+    // For example: startupForm.reset(); shopifyThemeForm.reset(); etc.
+  }, [initialGenerationType]);
 
   const generateLanguageTemplate = (lang: string) => {
     const templates: Record<string, string> = {
@@ -601,7 +613,7 @@ designGame();`;
       plan += `// SECTION: ${step.title.toUpperCase()}\n`;
       plan += `// Purpose: ${step.content}\n`;
       Object.entries(step.placeholders).forEach(([key, placeholder]) => {
-        const value = data[key as keyof StartupOrgPlanFormValues] || placeholder;
+        const value = data[key as keyof StartupOrgPlanFormValues] || startupForDummiesGuide.templateVariables[placeholder.substring(2, placeholder.length-2) as keyof typeof startupForDummiesGuide.templateVariables] || placeholder;
         plan += `//   - ${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}: ${value}\n`;
       });
       plan += "\n";
@@ -609,17 +621,17 @@ designGame();`;
 
     plan += `// Main function (conceptual for business organization process)
 function organizeStartup_${data.businessName.replace(/\s+/g, '_')}() {
-  // Step 1: Finalize Ideation & Concept
-  // Step 2: Conduct Thorough Market Research
-  // Step 3: Develop Comprehensive Business Plan
-  // Step 4: Complete Legal & Administrative Setup
-  // Step 5: Secure Funding & Manage Finances
-  // Step 6: Build the Team (if applicable)
-  // Step 7: Establish Brand & Marketing Strategy
-  // Step 8: Develop Product/Service (MVP)
-  // Step 9: Plan and Execute Launch
-  // Step 10: Implement Post-Launch Operations & Growth Strategies
-  console.log("Startup organization process for '${data.businessName}' initiated.");
+  console.log("Initiating startup organization process for: ${data.businessName}");\n`;
+  startupForDummiesGuide.steps.forEach(step => {
+    plan += `  // Step: ${step.title}\n`;
+    Object.keys(step.placeholders).forEach(key => {
+      const value = data[key as keyof StartupOrgPlanFormValues] || startupForDummiesGuide.templateVariables[step.placeholders[key as keyof typeof step.placeholders].substring(2, step.placeholders[key as keyof typeof step.placeholders].length-2) as keyof typeof startupForDummiesGuide.templateVariables];
+      if (value && value !== step.placeholders[key as keyof typeof step.placeholders]) { // Only log if user provided or default is different from raw placeholder
+         plan += `  //   - ${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} details: ${value.replace(/\n/g, '\\n')}\n`;
+      }
+    });
+  });
+  plan += `  console.log("Startup organization process for '${data.businessName}' outlined.");
 }
 
 organizeStartup_${data.businessName.replace(/\s+/g, '_')}();`;
@@ -700,51 +712,94 @@ designCardGame();`;
   };
 
 
-  const handleGenerate = () => {
-    if (generationType === 'language') {
-      const code = generateLanguageTemplate(language);
+  const handleGenerateClick = () => { // Renamed from handleGenerate
+    let code = '';
+    let currentMetadata: any = {};
+
+    try {
+      if (generationType === 'language') {
+        code = generateLanguageTemplate(language);
+        currentMetadata = { language };
+      } else if (generationType === 'startup') {
+        startupForm.trigger(); // Trigger validation
+        if (!startupForm.formState.isValid) {
+          toast.error("Please fill in all required fields for Startup Spec.");
+          return;
+        }
+        const startupData = startupForm.getValues();
+        code = generateStartupTemplate(startupData, language);
+        currentMetadata = { inputs: startupData, language };
+      } else if (generationType === 'shopifyTheme') {
+        shopifyThemeForm.trigger();
+        if (!shopifyThemeForm.formState.isValid) {
+          toast.error("Please fill in all required fields for Shopify Theme.");
+          return;
+        }
+        const themeData = shopifyThemeForm.getValues();
+        code = generateShopifyThemeTemplate(themeData);
+        currentMetadata = { inputs: themeData };
+      } else if (generationType === 'boardGameDesign') {
+        boardGameForm.trigger();
+        if (!boardGameForm.formState.isValid) {
+          toast.error("Please fill in all required fields for Board Game Design.");
+          return;
+        }
+        const boardGameData = boardGameForm.getValues();
+        code = generateBoardGameTemplate(boardGameData);
+        currentMetadata = { inputs: boardGameData };
+      } else if (generationType === 'startupOrgPlan') {
+        startupOrgPlanForm.trigger();
+         if (!startupOrgPlanForm.formState.isValid && !startupOrgPlanForm.getValues().businessName) { // Check only businessName for now
+          toast.error("Business Name is required for Startup Org Plan.");
+          // Allow proceeding even if other fields are not perfectly valid, as they are optional placeholders
+        }
+        const startupOrgPlanData = startupOrgPlanForm.getValues();
+        code = generateStartupOrgPlanTemplate(startupOrgPlanData);
+        currentMetadata = { inputs: startupOrgPlanData };
+      } else if (generationType === 'cardGameDesign') {
+        cardGameForm.trigger();
+        if (!cardGameForm.formState.isValid) {
+          toast.error("Please fill in all required fields for Card Game Design.");
+          return;
+        }
+        const cardGameData = cardGameForm.getValues();
+        code = generateCardGameTemplate(cardGameData);
+        currentMetadata = { inputs: cardGameData };
+      }
       setGeneratedCode(code);
-    } else if (generationType === 'startup') {
-      const startupData = startupForm.getValues();
-      const code = generateStartupTemplate(startupData, language);
-      setGeneratedCode(code);
-    } else if (generationType === 'shopifyTheme') { // New
-      const themeData = shopifyThemeForm.getValues();
-      const code = generateShopifyThemeTemplate(themeData);
-      setGeneratedCode(code);
-    } else if (generationType === 'boardGameDesign') { // New
-      const boardGameData = boardGameForm.getValues();
-      const code = generateBoardGameTemplate(boardGameData);
-      setGeneratedCode(code);
-    } else if (generationType === 'startupOrgPlan') { // New
-      const startupOrgPlanData = startupOrgPlanForm.getValues();
-      const code = generateStartupOrgPlanTemplate(startupOrgPlanData);
-      setGeneratedCode(code);
-    } else if (generationType === 'cardGameDesign') { // New
-      const cardGameData = cardGameForm.getValues();
-      const code = generateCardGameTemplate(cardGameData);
-      setGeneratedCode(code);
+      if (code) {
+        toast.success("Pseudocode/Spec generated successfully!");
+      }
+    } catch (error) {
+      toast.error("Failed to generate: " + (error instanceof Error ? error.message : String(error)));
+      console.error("Generation error:", error);
     }
   };
 
-  const handleSave = () => {
-    let metadata: any;
+  const handleSaveClick = () => { // Renamed from handleSave
+    if (!generatedCode) {
+      toast.error("Please generate the pseudocode or spec first.");
+      return;
+    }
+
+    let metadataForSave: { type: PseudocodeGenerationType, inputs: any, language?: string };
+    
     if (generationType === 'startup') {
-      metadata = { type: 'startup', ...startupForm.getValues() };
-    } else if (generationType === 'shopifyTheme') { // New
-      metadata = { type: 'shopifyTheme', ...shopifyThemeForm.getValues() };
-    } else if (generationType === 'boardGameDesign') { // New
-      metadata = { type: 'boardGameDesign', ...boardGameForm.getValues() };
-    } else if (generationType === 'startupOrgPlan') { // New
-      metadata = { type: 'startupOrgPlan', ...startupOrgPlanForm.getValues() };
-    } else if (generationType === 'cardGameDesign') { // New
-      metadata = { type: 'cardGameDesign', ...cardGameForm.getValues() };
-    } else {
-      metadata = { type: 'language', language };
+      metadataForSave = { type: 'startup', inputs: startupForm.getValues(), language };
+    } else if (generationType === 'shopifyTheme') {
+      metadataForSave = { type: 'shopifyTheme', inputs: shopifyThemeForm.getValues() };
+    } else if (generationType === 'boardGameDesign') {
+      metadataForSave = { type: 'boardGameDesign', inputs: boardGameForm.getValues() };
+    } else if (generationType === 'startupOrgPlan') {
+      metadataForSave = { type: 'startupOrgPlan', inputs: startupOrgPlanForm.getValues() };
+    } else if (generationType === 'cardGameDesign') {
+      metadataForSave = { type: 'cardGameDesign', inputs: cardGameForm.getValues() };
+    } else { // language
+      metadataForSave = { type: 'language', inputs: { language }, language };
     }
     
-    onGenerate(generatedCode, metadata);
-    onClose();
+    onSave(generatedCode, metadataForSave);
+    // onClose(); // The parent (DashboardLayout) will handle closing via createArtifact
   };
 
   return (
@@ -1020,22 +1075,26 @@ designCardGame();`;
                   <Card key={step.id} className="p-4">
                     <Label className="text-lg font-semibold">{step.title}</Label>
                     <p className="text-sm text-muted-foreground mb-2">{step.content}</p>
-                    {Object.entries(step.placeholders).map(([key, placeholder]) => (
-                      <FormField
-                        key={key}
-                        control={startupOrgPlanForm.control}
-                        name={key as keyof StartupOrgPlanFormValues}
-                        render={({ field }) => (
-                          <FormItem className="mt-2">
-                            <FormLabel>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder={startupForDummiesGuide.templateVariables[placeholder.substring(2, placeholder.length-2) as keyof typeof startupForDummiesGuide.templateVariables] || placeholder} {...field} className="min-h-[60px]" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    ))}
+                    {Object.entries(step.placeholders).map(([key, placeholderValue]) => {
+                      const placeholderKeyInGuide = placeholderValue.substring(2, placeholderValue.length-2) as keyof typeof startupForDummiesGuide.templateVariables;
+                      const exampleValue = startupForDummiesGuide.templateVariables[placeholderKeyInGuide] || placeholderValue;
+                      return (
+                        <FormField
+                          key={key}
+                          control={startupOrgPlanForm.control}
+                          name={key as keyof StartupOrgPlanFormValues}
+                          render={({ field }) => (
+                            <FormItem className="mt-2">
+                              <FormLabel>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder={exampleValue} {...field} className="min-h-[60px]" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      );
+                    })}
                   </Card>
                 ))}
               </form>
@@ -1104,8 +1163,8 @@ designCardGame();`;
         </Tabs>
         
         <div className="mt-6">
-          <Button onClick={handleGenerate} className="w-full">
-            Generate Pseudocode
+          <Button onClick={handleGenerateClick} className="w-full"> {/* Changed from handleGenerate */}
+            Generate Pseudocode/Spec
           </Button>
         </div>
         
@@ -1125,8 +1184,8 @@ designCardGame();`;
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSave} disabled={!generatedCode}>
-          Save
+        <Button onClick={handleSaveClick} disabled={!generatedCode}> {/* Changed from handleSave */}
+          Save to Artifacts
         </Button>
       </CardFooter>
     </Card>

@@ -71,7 +71,7 @@ Context: ${vars.context}
 ${vars.details ? `\nDetails:\n${vars.details}\n` : ''}
 ${vars.dueDate ? `\nSuggested Due Date: ${vars.dueDate}` : ''}
 ${vars.assignee ? `\nSuggested Assignee: ${vars.assignee}` : ''}
-    `,
+    `.trim(), // Use trim() to remove leading/trailing whitespace from template literal
     acceptance: [`${vars.actionTitle} completed and verified.`],
     labels: ['startup-task', 'planning']
   }),
@@ -92,7 +92,7 @@ ${vars.description}
 
 ${vars.userStory ? `## User Story\nAs a user, I want to ${vars.userStory} so that I can achieve [benefit].\n` : ''}
 ${vars.relatedComponent ? `\n## Related Component/Area\n${vars.relatedComponent}\n` : ''}
-    `,
+    `.trim(), // Use trim()
     acceptance: vars.acceptanceCriteria || [`${vars.featureName} is implemented and works as described.`],
     labels: ['feature-request', 'enhancement', 'needs-scoping']
   })
