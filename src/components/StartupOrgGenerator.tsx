@@ -1,475 +1,508 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Building, Users, ArrowRight, BarChart3, Shuffle, Copy, Save } from 'lucide-react';
+import { Building, Save, Layout, Shuffle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StartupOrgGeneratorProps {
-  onSave: (data: any) => void;
+  onSave: (data: StartupOrgData) => void;
 }
 
-// Define organization structure types based on web search results
-const orgStructureTypes = [
-  { label: 'Flat', value: 'flat', description: 'Very few management layers, specialists report directly to founders' },
-  { label: 'Functional', value: 'functional', description: 'Organized by business functions like marketing, engineering, etc.' },
-  { label: 'Matrix', value: 'matrix', description: 'Team members report to both functional managers and project managers' },
-  { label: 'Team-based', value: 'team-based', description: 'Cross-functional teams organized around products or projects' },
-  { label: 'Hierarchical', value: 'hierarchical', description: 'Traditional pyramid structure with clear reporting lines' }
+interface StartupOrgData {
+  companyName: string;
+  industry: string;
+  companySize: string;
+  orgStructure: string;
+  departments: Department[];
+  roles: Role[];
+}
+
+interface Department {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface Role {
+  id: string;
+  title: string;
+  department: string;
+  responsibilities: string[];
+  reportingTo?: string;
+}
+
+const orgStructureOptions = [
+  { label: "Flat Organization", value: "flat" },
+  { label: "Hierarchical", value: "hierarchical" },
+  { label: "Matrix", value: "matrix" },
+  { label: "Team-Based", value: "team" },
+  { label: "Functional", value: "functional" }
 ];
 
-const keyRoles = [
-  { label: 'CEO', description: 'Chief Executive Officer - Overall company strategy and leadership' },
-  { label: 'CTO', description: 'Chief Technology Officer - Technical direction and implementation' },
-  { label: 'COO', description: 'Chief Operating Officer - Day-to-day operations and execution' },
-  { label: 'CFO', description: 'Chief Financial Officer - Financial planning and management' },
-  { label: 'CMO', description: 'Chief Marketing Officer - Marketing strategy and customer acquisition' },
-  { label: 'CPO', description: 'Chief Product Officer - Product vision and roadmap' }
+const industrySuggestions = [
+  "Technology - SaaS", 
+  "FinTech", 
+  "Healthcare", 
+  "E-commerce", 
+  "EdTech", 
+  "CleanTech"
+];
+
+const defaultDepartments = [
+  { id: "exec", name: "Executive", description: "Company leadership and strategic direction" },
+  { id: "prod", name: "Product", description: "Product development and management" },
+  { id: "eng", name: "Engineering", description: "Technical implementation and infrastructure" },
+  { id: "des", name: "Design", description: "UX/UI and product design" },
+  { id: "mkt", name: "Marketing", description: "Brand, acquisition, and growth" },
+  { id: "sales", name: "Sales", description: "Revenue generation and client relationships" },
+  { id: "ops", name: "Operations", description: "Business operations and processes" }
+];
+
+const defaultRoles = [
+  { 
+    id: "ceo", 
+    title: "CEO/Founder", 
+    department: "exec",
+    responsibilities: [
+      "Overall company vision and strategy",
+      "Fundraising and investor relations",
+      "Culture development and leadership"
+    ]
+  },
+  { 
+    id: "cto", 
+    title: "CTO/Technical Co-Founder", 
+    department: "eng",
+    responsibilities: [
+      "Technical architecture and vision",
+      "Engineering team leadership",
+      "Technology stack decisions"
+    ],
+    reportingTo: "ceo"
+  },
+  { 
+    id: "prd", 
+    title: "Product Manager", 
+    department: "prod",
+    responsibilities: [
+      "Product roadmap development",
+      "Feature prioritization",
+      "User research and requirements"
+    ],
+    reportingTo: "ceo"
+  }
 ];
 
 export function StartupOrgGenerator({ onSave }: StartupOrgGeneratorProps) {
-  const [activeTab, setActiveTab] = useState('structure');
-  const [companyName, setCompanyName] = useState('');
-  const [companySize, setCompanySize] = useState('small');
-  const [companyIndustry, setCompanyIndustry] = useState('tech');
-  const [orgStructure, setOrgStructure] = useState('flat');
-  const [customRoles, setCustomRoles] = useState('');
-  const [customDepartments, setCustomDepartments] = useState('');
-  
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [generatedStructureText, setGeneratedStructureText] = useState('');
+  const [formData, setFormData] = useState<StartupOrgData>({
+    companyName: '',
+    industry: '',
+    companySize: "Small (1-10)",
+    orgStructure: "flat",
+    departments: [...defaultDepartments],
+    roles: [...defaultRoles]
+  });
 
-  // Generate pseudocode for the startup organization
-  const generatePseudocode = () => {
-    const template = `/**
- * {{companyName}} Organization Structure - Pseudocode Implementation
- * Size: {{companySize}} | Industry: {{companyIndustry}} | Structure: {{orgStructureLabel}}
- */
+  const [newDepartment, setNewDepartment] = useState<Partial<Department>>({
+    name: '',
+    description: ''
+  });
 
-// Define organization structure
-class OrganizationStructure {
-  constructor() {
-    this.name = "{{companyName}}";
-    this.structureType = "{{orgStructure}}";
-    this.departments = [];
-    this.roles = [];
-  }
-  
-  // Initialize core leadership team
-  initializeLeadershipTeam() {
-    {{#keyRoles}}
-    this.addLeadershipRole("{{role}}", "{{description}}");
-    {{/keyRoles}}
-    
-    // Additional custom roles
-    {{#customRoles}}
-    this.addRole("{{.}}");
-    {{/customRoles}}
-  }
-  
-  // Setup departments based on {{orgStructureLabel}} model
-  initializeDepartments() {
-    {{#departments}}
-    this.addDepartment("{{.}}");
-    {{/departments}}
-  }
-  
-  // Define communication flows in a {{orgStructureLabel}} structure
-  defineCommunicationFlows() {
-    // {{orgStructureDescription}}
-    if (this.structureType === "flat") {
-      this.implementDirectCommunication();
-    } else if (this.structureType === "functional") {
-      this.implementFunctionalHierarchy();
-    } else if (this.structureType === "matrix") {
-      this.implementMatrixReporting();
-    } else if (this.structureType === "team-based") {
-      this.implementCrossTeamCollaboration();
-    } else {
-      this.implementTraditionalHierarchy();
+  const [newRole, setNewRole] = useState<Partial<Role>>({
+    title: '',
+    department: '',
+    responsibilities: ['']
+  });
+
+  const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+
+  const handleInputChange = (field: keyof StartupOrgData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddDepartment = () => {
+    if (!newDepartment.name) {
+      toast.error('Department name is required');
+      return;
     }
-  }
-  
-  // Establish decision-making processes
-  defineDecisionMakingProcess() {
-    if (this.companySize === "small") {
-      return "consensus_with_founder_override";
-    } else if (this.companySize === "medium") {
-      return "department_autonomy_with_leadership_alignment";
-    } else {
-      return "hierarchical_with_delegated_authority";
-    }
-  }
-}
 
-// Initialize company organization
-function main() {
-  const organization = new OrganizationStructure();
-  organization.initializeLeadershipTeam();
-  organization.initializeDepartments();
-  organization.defineCommunicationFlows();
-  
-  const decisionProcess = organization.defineDecisionMakingProcess();
-  console.log("{{companyName}} organization structure initialized with " + decisionProcess + " decision model");
-  
-  return organization;
-}
-
-// Set up organization
-const {{companyNameVariable}} = main();
-`;
-
-    // Process the template using simple template substitution
-    const selectedStructure = orgStructureTypes.find(s => s.value === orgStructure);
+    const id = newDepartment.name.toLowerCase().replace(/\s+/g, '-');
     
-    // Parse custom roles and departments
-    const roles = customRoles.split('\n')
-      .map(role => role.trim())
-      .filter(role => role.length > 0);
-    
-    const departments = customDepartments.split('\n')
-      .map(dept => dept.trim())
-      .filter(dept => dept.length > 0);
-    
-    // Create template variables
-    const variables = {
-      companyName,
-      companyNameVariable: companyName.toLowerCase().replace(/\s+/g, '_'),
-      companySize,
-      companyIndustry,
-      orgStructure,
-      orgStructureLabel: selectedStructure?.label || orgStructure,
-      orgStructureDescription: selectedStructure?.description || '',
-      keyRoles: keyRoles.slice(0, 3).map(role => ({ 
-        role: role.label, 
-        description: role.description 
-      })),
-      customRoles: roles,
-      departments: departments.length > 0 ? departments : [
-        'Engineering', 
-        'Product', 
-        'Marketing', 
-        companyIndustry === 'tech' ? 'Customer Success' : 'Sales'
-      ]
-    };
-    
-    // Simple template processing
-    let result = template;
-    
-    // Replace simple variables
-    Object.entries(variables).forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        const regex = new RegExp(`{{${key}}}`, 'g');
-        result = result.replace(regex, value);
-      }
-    });
-    
-    // Process arrays with mustache-style {{#array}} {{/array}} sections
-    const arrayPattern = /{{#(\w+)}}([\s\S]*?){{\/\1}}/g;
-    result = result.replace(arrayPattern, (match, arrayName, content) => {
-      const array = (variables as any)[arrayName];
-      if (!Array.isArray(array)) return '';
-      
-      return array.map((item: any) => {
-        let itemContent = content;
-        if (typeof item === 'string') {
-          // Replace {{.}} with the item itself
-          return itemContent.replace(/{{\.}}/g, item);
-        } else {
-          // Replace {{property}} with item.property
-          Object.entries(item).forEach(([key, value]) => {
-            const itemRegex = new RegExp(`{{${key}}}`, 'g');
-            itemContent = itemContent.replace(itemRegex, value as string);
-          });
-          return itemContent;
+    setFormData(prev => ({
+      ...prev,
+      departments: [
+        ...prev.departments,
+        {
+          id,
+          name: newDepartment.name,
+          description: newDepartment.description || ''
         }
-      }).join('\n');
+      ]
+    }));
+    
+    setNewDepartment({ name: '', description: '' });
+  };
+
+  const handleAddRole = () => {
+    if (!newRole.title || !newRole.department) {
+      toast.error('Role title and department are required');
+      return;
+    }
+
+    const id = newRole.title.toLowerCase().replace(/\s+/g, '-');
+    
+    setFormData(prev => ({
+      ...prev,
+      roles: [
+        ...prev.roles,
+        {
+          id,
+          title: newRole.title,
+          department: newRole.department,
+          responsibilities: newRole.responsibilities || [''],
+          reportingTo: newRole.reportingTo
+        }
+      ]
+    }));
+    
+    setNewRole({
+      title: '',
+      department: '',
+      responsibilities: ['']
     });
-    
-    setGeneratedCode(result);
-    
-    // Also generate a simple text representation
-    const structureText = generateStructureText(variables);
-    setGeneratedStructureText(structureText);
   };
-  
-  // Generate a simple text representation of the organization structure
-  const generateStructureText = (variables: any) => {
-    const selectedStructure = orgStructureTypes.find(s => s.value === orgStructure);
-    
-    return `# ${companyName} Organization Structure
 
-## Overview
-- **Company Size:** ${companySize === 'small' ? 'Small (1-20 employees)' : companySize === 'medium' ? 'Medium (21-100 employees)' : 'Large (100+ employees)'}
-- **Industry:** ${companyIndustry}
-- **Structure Type:** ${selectedStructure?.label || orgStructure}
-
-${selectedStructure?.description ? `> ${selectedStructure.description}` : ''}
-
-## Leadership Team
-${keyRoles.slice(0, 3).map(role => `- **${role.label}:** ${role.description}`).join('\n')}
-
-${customRoles ? `## Additional Roles\n${customRoles.split('\n').map(role => `- ${role}`).join('\n')}` : ''}
-
-## Departments
-${variables.departments.map((dept: string) => `- ${dept}`).join('\n')}
-
-## Communication Flow
-${selectedStructure?.description || 'Standard communication channels between teams and leadership.'}`;
+  const handleRemoveDepartment = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      departments: prev.departments.filter(dept => dept.id !== id),
+      roles: prev.roles.filter(role => role.department !== id)
+    }));
   };
-  
-  const handleSave = () => {
-    if (!companyName.trim()) {
+
+  const handleRemoveRole = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      roles: prev.roles.filter(role => role.id !== id)
+    }));
+  };
+
+  const handleResponsibilityChange = (index: number, value: string) => {
+    setNewRole(prev => {
+      const responsibilities = [...(prev.responsibilities || [''])];
+      responsibilities[index] = value;
+      return { ...prev, responsibilities };
+    });
+  };
+
+  const addResponsibilityField = () => {
+    setNewRole(prev => ({
+      ...prev,
+      responsibilities: [...(prev.responsibilities || ['']), '']
+    }));
+  };
+
+  const handleSaveClick = () => {
+    if (!formData.companyName) {
       toast.error('Company name is required');
       return;
     }
-    
-    // Generate the code if not already generated
-    if (!generatedCode) {
-      generatePseudocode();
-    }
-    
-    const data = {
-      type: 'startup-org',
-      companyName,
-      companySize,
-      companyIndustry,
-      orgStructure,
-      customRoles: customRoles.split('\n').filter(r => r.trim().length > 0),
-      customDepartments: customDepartments.split('\n').filter(d => d.trim().length > 0),
-      generatedCode,
-      generatedStructureText
-    };
-    
-    onSave(data);
+
+    onSave(formData);
     toast.success('Organization structure saved');
   };
-  
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-      .then(() => toast.success('Copied to clipboard'))
-      .catch(() => toast.error('Failed to copy'));
-  };
-  
-  const randomizeOrganization = () => {
-    const randomCompanySize = ['small', 'medium', 'large'][Math.floor(Math.random() * 3)];
-    const randomIndustries = ['tech', 'finance', 'healthcare', 'education', 'retail'];
-    const randomIndustry = randomIndustries[Math.floor(Math.random() * randomIndustries.length)];
-    const randomStructure = orgStructureTypes[Math.floor(Math.random() * orgStructureTypes.length)].value;
-    
-    setCompanySize(randomCompanySize);
-    setCompanyIndustry(randomIndustry);
-    setOrgStructure(randomStructure);
+
+  const generateRandomOrg = () => {
+    const randomCompanyName = `${getRandomItem([
+      "Nova", "Apex", "Quantum", "Zenith", "Prism", "Fusion", "Nexus", "Vector"
+    ])} ${getRandomItem([
+      "Tech", "Systems", "Solutions", "Labs", "Dynamics", "Innovations", "Platform"
+    ])}`;
+
+    setFormData({
+      companyName: randomCompanyName,
+      industry: getRandomItem(industrySuggestions),
+      companySize: getRandomItem(["Small (1-10)", "Medium (11-50)", "Large (51-200)"]),
+      orgStructure: getRandomItem(orgStructureOptions).value,
+      departments: [...defaultDepartments],
+      roles: [...defaultRoles]
+    });
+
+    toast.success("Generated random organization structure");
   };
 
+  const getRandomItem = <T extends unknown>(items: T[]): T => {
+    return items[Math.floor(Math.random() * items.length)];
+  };
+
+  const departmentOptions = formData.departments.map(dept => (
+    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+  ));
+
+  const roleOptions = formData.roles.map(role => (
+    <SelectItem key={role.id} value={role.id}>{role.title}</SelectItem>
+  ));
+
   return (
-    <div className="space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center">
-            <Building className="mr-2 h-6 w-6" /> Startup Organization Generator
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="structure">Structure</TabsTrigger>
-              <TabsTrigger value="roles">Roles & Departments</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="structure" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company-name">Company Name</Label>
-                  <Input 
-                    id="company-name" 
-                    value={companyName} 
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Acme Technologies"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="company-size">Company Size</Label>
-                  <Select value={companySize} onValueChange={setCompanySize}>
-                    <SelectTrigger id="company-size">
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="small">Small (1-20 employees)</SelectItem>
-                      <SelectItem value="medium">Medium (21-100 employees)</SelectItem>
-                      <SelectItem value="large">Large (100+ employees)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="company-industry">Primary Industry</Label>
-                  <Select value={companyIndustry} onValueChange={setCompanyIndustry}>
-                    <SelectTrigger id="company-industry">
-                      <SelectValue placeholder="Select industry" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tech">Technology</SelectItem>
-                      <SelectItem value="finance">Finance</SelectItem>
-                      <SelectItem value="healthcare">Healthcare</SelectItem>
-                      <SelectItem value="education">Education</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                      <SelectItem value="media">Media & Entertainment</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="org-structure">Organization Structure</Label>
-                  <Select value={orgStructure} onValueChange={setOrgStructure}>
-                    <SelectTrigger id="org-structure">
-                      <SelectValue placeholder="Select structure" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orgStructureTypes.map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="py-4">
-                {orgStructureTypes.find(t => t.value === orgStructure)?.description && (
-                  <div className="bg-muted p-4 rounded-md text-sm">
-                    <p className="font-medium">About {orgStructureTypes.find(t => t.value === orgStructure)?.label} Structure:</p>
-                    <p>{orgStructureTypes.find(t => t.value === orgStructure)?.description}</p>
-                  </div>
-                )}
-              </div>
-              
-              <Button onClick={randomizeOrganization} variant="outline">
-                <Shuffle className="mr-2 w-4 h-4" />
-                Randomize
-              </Button>
-            </TabsContent>
-            
-            <TabsContent value="roles" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="custom-roles">
-                    Custom Roles <span className="text-muted-foreground">(one per line)</span>
-                  </Label>
-                  <Textarea 
-                    id="custom-roles" 
-                    value={customRoles} 
-                    onChange={(e) => setCustomRoles(e.target.value)}
-                    placeholder="Chief Growth Officer
-VP of Engineering
-Head of Design"
-                    rows={5}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="custom-departments">
-                    Departments <span className="text-muted-foreground">(one per line)</span>
-                  </Label>
-                  <Textarea 
-                    id="custom-departments" 
-                    value={customDepartments} 
-                    onChange={(e) => setCustomDepartments(e.target.value)}
-                    placeholder="Engineering
-Product
-Marketing
-Sales
-Customer Success"
-                    rows={5}
-                  />
-                </div>
-              </div>
-              
-              <div className="pt-4 space-y-3">
-                <Label>Common Startup Roles</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {keyRoles.map((role) => (
-                    <div key={role.label} className="p-3 border rounded-md">
-                      <div className="font-medium">{role.label}</div>
-                      <div className="text-sm text-muted-foreground">{role.description}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="preview">
-              <Button 
-                onClick={generatePseudocode} 
-                className="mb-4"
+    <div className="space-y-6 pb-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Startup Organization Generator</h2>
+          <p className="text-muted-foreground">Create your company's organizational structure</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={generateRandomOrg}>
+            <Shuffle className="w-4 h-4 mr-2" />
+            Generate Random
+          </Button>
+          <Button onClick={handleSaveClick}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Structure
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Company Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Information</CardTitle>
+            <CardDescription>Basic details about your startup</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="company-name">Company Name</Label>
+              <Input
+                id="company-name"
+                value={formData.companyName}
+                onChange={(e) => handleInputChange('companyName', e.target.value)}
+                placeholder="e.g., Acme Inc."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="industry">Industry</Label>
+              <Input
+                id="industry"
+                value={formData.industry}
+                onChange={(e) => handleInputChange('industry', e.target.value)}
+                placeholder="e.g., SaaS, FinTech, Healthcare"
+                list="industry-suggestions"
+              />
+              <datalist id="industry-suggestions">
+                {industrySuggestions.map((industry, i) => (
+                  <option key={i} value={industry} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company-size">Company Size</Label>
+              <Select 
+                value={formData.companySize} 
+                onValueChange={(value) => handleInputChange('companySize', value)}
               >
-                <ArrowRight className="mr-2 w-4 h-4" />
-                Generate Organization Structure
-              </Button>
-              
-              {generatedCode && (
-                <>
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <div className="bg-muted p-4 rounded-md">
-                        <pre className="text-sm whitespace-pre-wrap font-mono">{generatedCode}</pre>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => copyToClipboard(generatedCode)}
-                        className="absolute top-2 right-2"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="border-t pt-4">
-                      <h3 className="text-lg font-medium flex items-center">
-                        <BarChart3 className="mr-2 h-5 w-5" /> 
-                        Organization Structure Summary
-                      </h3>
-                      <div className="mt-2 relative">
-                        <div className="bg-muted p-4 rounded-md">
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <pre className="whitespace-pre-wrap font-sans">{generatedStructureText}</pre>
-                          </div>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => copyToClipboard(generatedStructureText)}
-                          className="absolute top-2 right-2"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                <SelectTrigger id="company-size">
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Small (1-10)">Small (1-10 employees)</SelectItem>
+                  <SelectItem value="Medium (11-50)">Medium (11-50 employees)</SelectItem>
+                  <SelectItem value="Large (51-200)">Large (51-200 employees)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="org-structure">Organizational Structure</Label>
+              <Select 
+                value={formData.orgStructure} 
+                onValueChange={(value) => handleInputChange('orgStructure', value)}
+              >
+                <SelectTrigger id="org-structure">
+                  <SelectValue placeholder="Select structure" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orgStructureOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Departments Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Departments</CardTitle>
+            <CardDescription>Define your company's departments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              {formData.departments.map(dept => (
+                <div key={dept.id} className="flex justify-between items-start p-3 border rounded-md">
+                  <div>
+                    <div className="font-medium">{dept.name}</div>
+                    <div className="text-sm text-muted-foreground">{dept.description}</div>
                   </div>
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={randomizeOrganization}>
-            <Shuffle className="mr-2 w-4 h-4" />
-            Randomize
-          </Button>
-          <Button onClick={handleSave}>
-            <Save className="mr-2 w-4 h-4" />
-            Save Organization
-          </Button>
-        </CardFooter>
-      </Card>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleRemoveDepartment(dept.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="border-t pt-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="dept-name">Department Name</Label>
+                <Input
+                  id="dept-name"
+                  value={newDepartment.name}
+                  onChange={(e) => setNewDepartment(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Marketing"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dept-desc">Description</Label>
+                <Input
+                  id="dept-desc"
+                  value={newDepartment.description}
+                  onChange={(e) => setNewDepartment(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="e.g., Handle branding and customer acquisition"
+                />
+              </div>
+              <Button onClick={handleAddDepartment}>Add Department</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Roles Card - Full Width */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Roles & Responsibilities</CardTitle>
+            <CardDescription>Define key positions and reporting structure</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              {formData.roles.map(role => (
+                <div key={role.id} className="border rounded-md p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium text-lg">{role.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Department: {formData.departments.find(d => d.id === role.department)?.name || role.department}
+                      </div>
+                      {role.reportingTo && (
+                        <div className="text-sm text-muted-foreground">
+                          Reports to: {formData.roles.find(r => r.id === role.reportingTo)?.title || role.reportingTo}
+                        </div>
+                      )}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveRole(role.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-2">
+                    <div className="font-medium text-sm">Responsibilities:</div>
+                    <ul className="list-disc pl-5 mt-1">
+                      {role.responsibilities.map((resp, i) => (
+                        <li key={i} className="text-sm">{resp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-medium">Add New Role</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="role-title">Role Title</Label>
+                  <Input
+                    id="role-title"
+                    value={newRole.title}
+                    onChange={(e) => setNewRole(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g., Product Manager"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role-dept">Department</Label>
+                  <Select 
+                    value={newRole.department} 
+                    onValueChange={(value) => setNewRole(prev => ({ ...prev, department: value }))}
+                  >
+                    <SelectTrigger id="role-dept">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departmentOptions}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role-reporting">Reports To (Optional)</Label>
+                <Select 
+                  value={newRole.reportingTo} 
+                  onValueChange={(value) => setNewRole(prev => ({ ...prev, reportingTo: value }))}
+                >
+                  <SelectTrigger id="role-reporting">
+                    <SelectValue placeholder="Select manager (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Responsibilities</Label>
+                {newRole.responsibilities?.map((resp, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      value={resp}
+                      onChange={(e) => handleResponsibilityChange(index, e.target.value)}
+                      placeholder={`Responsibility ${index + 1}`}
+                    />
+                    {index === (newRole.responsibilities?.length || 0) - 1 && (
+                      <Button variant="outline" type="button" onClick={addResponsibilityField}>
+                        +
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <Button onClick={handleAddRole}>Add Role</Button>
+            </div>
+          </CardContent>
+          <CardFooter className="border-t flex justify-end">
+            <Button onClick={handleSaveClick}>
+              <Save className="w-4 h-4 mr-2" />
+              Save Organization Structure
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

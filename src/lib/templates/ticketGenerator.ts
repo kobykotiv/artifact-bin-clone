@@ -54,6 +54,47 @@ export const templates = {
       '```'
     ].join('\n'),
     labels: ['prompt-engineering', 'ai']
+  }),
+
+  startupActionItem: (vars: {
+    actionTitle: string;
+    context: string; // e.g., From SaaS Bootstrapper Guide - Section 2
+    details?: string;
+    dueDate?: string; // Optional due date
+    assignee?: string; // Optional assignee
+  }): TicketTemplate => ({
+    title: `Action: ${vars.actionTitle}`,
+    type: 'Task',
+    priority: 'Medium',
+    description: `
+Context: ${vars.context}
+${vars.details ? `\nDetails:\n${vars.details}\n` : ''}
+${vars.dueDate ? `\nSuggested Due Date: ${vars.dueDate}` : ''}
+${vars.assignee ? `\nSuggested Assignee: ${vars.assignee}` : ''}
+    `,
+    acceptance: [`${vars.actionTitle} completed and verified.`],
+    labels: ['startup-task', 'planning']
+  }),
+
+  newFeatureRequest: (vars: {
+    featureName: string;
+    description: string;
+    userStory?: string;
+    acceptanceCriteria?: string[];
+    relatedComponent?: string; // e.g., PromptGenerator, PseudocodeGenerator
+  }): TicketTemplate => ({
+    title: `Feature Request: ${vars.featureName}`,
+    type: 'Story',
+    priority: 'Medium',
+    description: `
+## Feature Description
+${vars.description}
+
+${vars.userStory ? `## User Story\nAs a user, I want to ${vars.userStory} so that I can achieve [benefit].\n` : ''}
+${vars.relatedComponent ? `\n## Related Component/Area\n${vars.relatedComponent}\n` : ''}
+    `,
+    acceptance: vars.acceptanceCriteria || [`${vars.featureName} is implemented and works as described.`],
+    labels: ['feature-request', 'enhancement', 'needs-scoping']
   })
 };
 

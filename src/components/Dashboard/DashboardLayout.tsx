@@ -8,7 +8,23 @@ import {
   FolderOpen, 
   BarChart4, 
   FileText,
-  ChevronDown 
+  ChevronDown,
+  BarChart,
+  DollarSign,
+  PieChart,
+  Building,
+  Briefcase,
+  Layout,
+  BookOpen,
+  LayoutGrid,
+  Rocket,
+  TrendingUp,
+  Settings2,
+  Globe,
+  Smartphone,
+  Brain,
+  Store,
+  Dice5
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -67,6 +83,8 @@ export function DashboardLayout() {
   // State for showing specialized pages/modals
   const [showStatistics, setShowStatistics] = useState(false);
   const [showStartupOrgGenerator, setShowStartupOrgGenerator] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [showCustomTemplateManager, setShowCustomTemplateManager] = useState(false);
 
   // Filter artifacts
   const filteredArtifacts = artifacts.filter(artifact => {
@@ -164,7 +182,7 @@ export function DashboardLayout() {
           <div className="flex items-center gap-4">
             <h1 className="font-bold text-lg">Artifact Bin</h1>
             
-            {/* File Menu (formerly Quick Actions) */}
+            {/* File Menu in Header */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="file-menu-trigger">
@@ -173,32 +191,114 @@ export function DashboardLayout() {
                   <ChevronDown className="ml-1 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuContent align="start" className="w-64"> {/* Increased width for longer items */}
                 <DropdownMenuLabel>Create New</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => createArtifact('code')}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Code Snippet
+                  Code Artifact
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => createArtifact('project')}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Project
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setLayout({ activeTab: "pseudocode", tabVisibility: { ...layout.tabVisibility, pseudocode: true } })}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Generate Pseudocode
+                  Project Specification
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel>Business Planning & Strategy</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => createArtifact('marketing')}>
+                  <BarChart className="mr-2 h-4 w-4" />
+                  Marketing Plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('fundraising')}>
+                  <BarChart className="mr-2 h-4 w-4" />
+                  Fundraising Plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('budget')}>
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Budget Plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('shares')}>
+                  <PieChart className="mr-2 h-4 w-4" />
+                  Shares Plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('startup')}>
+                  <Building className="mr-2 h-4 w-4" />
+                  Startup Plan Outline {/* Triggers PseudocodeGenerator */}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => showPromptGenerator('saaSModelCanvas')}>
+                  <LayoutGrid className="mr-2 h-4 w-4" />
+                  SaaS Model Canvas Prompt
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Creative & Technical Generators</DropdownMenuLabel> {/* New Sub-label */}
+                <DropdownMenuItem onClick={() => showPromptGenerator('websiteDesign')}>
+                  <Globe className="mr-2 h-4 w-4" /> {/* New Icon */}
+                  Website Design Prompt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => showPromptGenerator('mobileAppConcept')}>
+                  <Smartphone className="mr-2 h-4 w-4" /> {/* New Icon */}
+                  Mobile App Concept Prompt
+                </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => showPromptGenerator('aiMlAppConcept')}>
+                  <Brain className="mr-2 h-4 w-4" /> {/* New Icon */}
+                  AI/ML App Concept Prompt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('shopifyTheme')}> {/* Triggers PseudocodeGenerator */}
+                  <Store className="mr-2 h-4 w-4" /> {/* New Icon */}
+                  Shopify Theme Plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('boardGameDesign')}> {/* Triggers PseudocodeGenerator */}
+                  <Dice5 className="mr-2 h-4 w-4" /> {/* New Icon */}
+                  Board Game Design
+                </DropdownMenuItem>
+                {/* Placeholder for more generators */}
+                {/* 
+                <DropdownMenuItem onClick={() => showPromptGenerator('threeJsSceneConcept')}>
+                  <Box className="mr-2 h-4 w-4" />
+                  3D Scene (Three.js) Prompt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => showPromptGenerator('wordpressThemeBrief')}>
+                  <PenTool className="mr-2 h-4 w-4" />
+                  WordPress Theme Brief
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createArtifact('cardGameDesign')}>
+                  <Layers className="mr-2 h-4 w-4" />
+                  Card Game Design
+                </DropdownMenuItem>
+                */}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Organization & Guides</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => setShowStartupOrgGenerator(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Startup Organization
+                  <Layout className="mr-2 h-4 w-4" />
+                  Define Org Chart
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('startupOrgGuide')}>
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Startup Organization Guide
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('saaSBootstrapperGuide')}> {/* New Item */}
+                  <Rocket className="mr-2 h-4 w-4" /> {/* Changed Icon */}
+                  SaaS Bootstrapper's Guide
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('startupScalingGuide')}> {/* New Item */}
+                  <TrendingUp className="mr-2 h-4 w-4" /> {/* Changed Icon */}
+                  Startup Scaling Guide
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('corporation')}>
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  Corporation Setup Guide
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('termsheet')}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Term Sheet Guide
+                </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setSelectedFolderId(null)}>
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  View All Files
+                <DropdownMenuLabel>Customization</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setShowCustomTemplateManager(true)}> {/* New Item - Placeholder */}
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Manage Custom Templates
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
