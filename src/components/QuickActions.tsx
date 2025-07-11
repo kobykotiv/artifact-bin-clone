@@ -61,7 +61,7 @@ interface QuickActionsProps {
   onSaveAll?: () => void; // Optional: if a global save action is desired
 }
 
-export function QuickActions({
+export function FileMenu({ // Renamed from QuickActions
   createArtifact,
   setLayout,
   layout,
@@ -83,7 +83,7 @@ export function QuickActions({
           <ChevronDown className="ml-1 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72"> {/* Increased width */}
+      <DropdownMenuContent align="start" className="w-80"> {/* Increased width */}
         <DropdownMenuGroup>
           <DropdownMenuLabel>New Artifact</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => createArtifact('code')}>
@@ -131,11 +131,11 @@ export function QuickActions({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Generators</DropdownMenuLabel>
+          <DropdownMenuLabel>Generators & Design Specs</DropdownMenuLabel>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Code className="mr-2 h-4 w-4" />
-              <span>Pseudocode & Specs</span>
+              <span>Code & Spec Generators</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent>
@@ -146,7 +146,7 @@ export function QuickActions({
                   Startup Org Plan (Dummies Guide)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('shopifyTheme')}>
-                  Shopify Theme Plan
+                  <Brush className="mr-2 h-4 w-4" /> Shopify Theme Plan
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onShowPseudocodeGenerator('boardGameDesign')}>
                   Board Game Design

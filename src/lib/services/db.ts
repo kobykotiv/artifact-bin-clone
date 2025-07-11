@@ -3,20 +3,17 @@ import { type IPrompt, type PromptData } from "@/lib/models/Prompt";
 
 // Define interfaces for new entities
 export interface ArtifactData {
-  [x: string]: string;
-  language: string;
-  title: any;
   id: string;
   userId: string;
-  folderId?: string; // Optional: if artifacts can belong to folders
-  projectId?: string; // Optional: if artifacts can belong to projects
-  name: string;
-  content: string; // Simulate S3 blob storage
-  fileType: string; // e.g., 'js', 'ts', 'json'
-  tags: string[];
-  voteRatio?: number; // Optional
-  createdAt: string;
-  updatedAt: string;
+  title: string;
+  type: string;
+  content: string;
+  language?: string;
+  folderId?: string;
+  metadata?: any;
+  avatarSeed?: string;
+  code?: string;
+  // ...any other needed fields...
 }
 
 export interface FolderData {
@@ -610,4 +607,10 @@ class DBService {
   }
 }
 
-export const dbService = new DBService();
+export const dbService = {
+  createArtifact: async (data: Omit<ArtifactData, 'id'>) => {
+    // Implementation...
+    return { id: crypto.randomUUID(), ...data } as ArtifactData;
+  }
+  // ...other db methods...
+};

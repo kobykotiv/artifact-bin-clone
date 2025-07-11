@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
+import { dbService } from '@/lib/services/db';
+import { type ArtifactData } from '@/lib/services/db';
 import { useDashboard } from './DashboardContext';
 import { Button } from '@/components/ui/button';
 import { 
@@ -53,13 +56,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StartupOrgGenerator } from '@/components/StartupOrgGenerator';
-import { StartupOrganizationGuideTab } from '@/components/Guides/StartupOrganizationGuideTab';
-import { SaasBootstrapperGuideTab } from '@/components/Guides/SaaSBootstrapperGuideTab';
-import { StartupScalingGuideTab } from '@/components/Guides/StartupScalingGuideTab';
-import { CorporationSetupGuideTab } from '@/components/Guides/CorporationSetupGuideTab';
-import { TermSheetGuideTab } from '@/components/Guides/TermSheetGuideTab';
-import { SaaSFinancialFreedomGuideTab } from '@/components/guides/SaaSFinancialFreedomGuideTab'; // New Guide Tab
-import { PseudocodeViewer } from '@/components/PseudocodeViewer';
+// import { StartupOrganizationGuideTab } from '@/components/Guides/StartupOrganizationGuideTab';
+// import { SaasBootstrapperGuideTab } from '@/components/Guides/SaaSBootstrapperGuideTab';
+// import { StartupScalingGuideTab } from '@/components/Guides/StartupScalingGuideTab';
+// import { CorporationSetupGuideTab } from '@/components/Guides/CorporationSetupGuideTab';
+// import { TermSheetGuideTab } from '@/components/Guides/TermSheetGuideTab';
+// import { SaaSFinancialFreedomGuideTab } from '@/components/guides/SaaSFinancialFreedomGuideTab'; // New Guide Tab
+// import { PseudocodeViewer } from '@/components/PseudocodeViewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PromptGenerator } from '@/components/PromptGenerator'; // Assuming PromptGenerator is a component
 import { PseudocodeGenerator } from '@/lib/templates/PseudocodeGenerator'; // Assuming PseudocodeGenerator is a component
@@ -75,7 +78,7 @@ export function DashboardLayout() {
     saveArtifact,
     deleteArtifact,
     forkArtifact,
-    createArtifact,
+    // createArtifact,
     folders,
     selectedFolderId,
     setSelectedFolderId,
@@ -109,6 +112,8 @@ export function DashboardLayout() {
   // New state for PseudocodeGenerator modal
   const [showPseudocodeGeneratorModal, setShowPseudocodeGeneratorModal] = useState(false);
   const [activePseudocodeTypeForModal, setActivePseudocodeTypeForModal] = useState<string | null>(null);
+
+  const [setArtifacts] = useState<ArtifactData[]>([]); // Add missing state
 
   // Filter artifacts
   const filteredArtifacts = artifacts.filter(artifact => {

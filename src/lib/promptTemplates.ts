@@ -238,7 +238,7 @@ Summarize the core strengths and potential weaknesses of this SaaS model based o
     `
   ),
 
-  websiteDesign: new PromptTemplate( // New
+  websiteDesign: new PromptTemplate(
 `
 Generate a comprehensive design brief for a new website.
 
@@ -248,7 +248,7 @@ Type of Website: {{siteType}}
 Target Audience:
 {{targetAudience}}
 
-Core Purpose/Goal of the Website:
+Core Purpose/Goal:
 {{corePurpose}}
 
 Key Pages/Sections Required:
@@ -256,23 +256,10 @@ Key Pages/Sections Required:
 
 Desired Design Style/Aesthetic:
 {{designStyle}}
-
-Inspirational Websites (if any):
-{{inspirations[]}}
-
-Key message or feeling the website should convey:
-
-Any specific functionalities or integrations needed (e.g., contact form, e-commerce, blog):
-
-Branding elements available (logo, color palette, fonts - if any):
-
-Call to Action: What is the primary action you want visitors to take?
-
-Notes on content (e.g., who provides it, what tone):
 `
   ),
 
-  mobileAppConcept: new PromptTemplate( // New
+  mobileAppConcept: new PromptTemplate(
 `
 Develop a detailed concept for a new mobile application.
 
@@ -285,24 +272,10 @@ Problem Solved by App:
 
 Core Features:
 {{coreFeatures[]}}
-
-Unique Selling Point (USP):
-{{uniqueSellingPoint}}
-
-Target User Persona (brief description):
-
-Monetization Strategy (if applicable):
-{{monetizationStrategy}}
-
-Potential Competitors (if known):
-
-Key Design Considerations or User Experience Goals:
-
-Success Metrics (How would you measure the app's success?):
 `
   ),
 
-  aiMlAppConcept: new PromptTemplate( // New
+  aiMlAppConcept: new PromptTemplate(
 `
 Outline a concept for an AI/ML-powered application.
 
