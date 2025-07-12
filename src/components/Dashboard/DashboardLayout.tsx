@@ -495,20 +495,6 @@ export function DashboardLayout() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <RadioGroup 
-                value={navTheme} 
-                onValueChange={(value) => setNavTheme(value as 'light' | 'dark')}
-                className="flex items-center space-x-2"
-              >
-                <div className="flex items-center space-x-1">
-                  <RadioGroupItem value="light" id="theme-light" />
-                  <label htmlFor="theme-light" className="text-sm">Light</label>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <RadioGroupItem value="dark" id="theme-dark" />
-                  <label htmlFor="theme-dark" className="text-sm">Dark</label>
-                </div>
-              </RadioGroup>
               <UserAvatar username="demo-user" />
             </div>
           </div>
