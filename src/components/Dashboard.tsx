@@ -1,5 +1,6 @@
 import { DashboardProvider } from './Dashboard/DashboardContext';
 import { DashboardLayout } from './Dashboard/DashboardLayout';
+import { useAuthContext } from '@/lib/context/AuthContext';
 import '@/styles/dashboard.css';
 
 /**
@@ -17,8 +18,14 @@ import '@/styles/dashboard.css';
  * that make effective use of available space on wide displays.
  */
 export default function Dashboard() {
+  const { authState } = useAuthContext();
+
+  if (!authState.user) {
+    return <div>Loading user data...</div>;
+  }
+
   return (
-    <DashboardProvider>
+    <DashboardProvider user={authState.user}>
       <div className="dashboard-container large-screen-optimized">
         <DashboardLayout />
       </div>

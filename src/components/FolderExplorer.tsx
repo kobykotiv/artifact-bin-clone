@@ -1,126 +1,187 @@
-import React, { useState } from 'react';
-import { type ArtifactData } from '@/lib/services/db';
-import { ChevronRight, ChevronDown, FileCode, FileText, FolderOpen, Folder } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { dbService, type FolderData, type ArtifactData } from '@/lib/services/db';
+import { ChevronRight, ChevronDown, Folder as FolderIcon, FileCode, Plus, MoreHorizontal, Edit, Trash2, FolderPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from './ui/input';
+import { toast } from 'sonner';
 
 interface FolderExplorerProps {
-  folders: Record<string, ArtifactData[]>;
   activeArtifactId: string | null;
-  activeFolderId: string | null; 
-  onSelectFolder: (folderId: string) => void;
   onSelectArtifact: (artifactId: string) => void;
+  // The user ID is needed to fetch the correct folders
+  userId: string;
+}
+
+interface FolderWithArtifacts extends FolderData {
+  artifacts: ArtifactData[];
+  children: FolderWithArtifacts[];
 }
 
 export function FolderExplorer({
-  folders,
   activeArtifactId,
-  activeFolderId,
-  onSelectFolder,
-  onSelectArtifact
+  onSelectArtifact,
+  userId,
 }: FolderExplorerProps) {
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    "All": true,
-    "Code Snippets": false,
-    "Project Specs": false, 
-    "Business Plans": false,
-    "Sprint Plans": false
-  });
+  const [folders, setFolders] = useState<FolderData[]>([]);
+  const [artifacts, setArtifacts] = useState<ArtifactData[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
+
+  // Fetch initial data
+  React.useEffect(() => {
+    const fetchData = async () => {
+      const userFolders = await dbService.getFoldersByUser(userId);
+      const userArtifacts = await dbService.getAllArtifacts(); // In a real app, filter by user
+      setFolders(userFolders);
+      setArtifacts(userArtifacts.filter(a => a.userId === userId));
+    };
+    fetchData();
+  }, [userId]);
+
+  const folderTree = useMemo(() => {
+    const folderMap = new Map<string, FolderWithArtifacts>();
+    const rootFolders: FolderWithArtifacts[] = [];
+
+    folders.forEach(folder => {
+      folderMap.set(folder.id, { ...folder, children: [], artifacts: [] });
+    });
+
+    artifacts.forEach(artifact => {
+      if (artifact.folderId && folderMap.has(artifact.folderId)) {
+        folderMap.get(artifact.folderId)?.artifacts.push(artifact);
+      }
+    });
+
+    folders.forEach(folder => {
+      if (folder.parentId && folderMap.has(folder.parentId)) {
+        folderMap.get(folder.parentId)?.children.push(folderMap.get(folder.id)!);
+      } else {
+        rootFolders.push(folderMap.get(folder.id)!);
+      }
+    });
+
+    return rootFolders;
+  }, [folders, artifacts]);
 
   const toggleFolder = (folderId: string) => {
-    setExpandedFolders(prev => ({
-      ...prev,
-      [folderId]: !prev[folderId]
-    }));
-    onSelectFolder(folderId);
+    setExpandedFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
   };
 
-  // Helper function to get appropriate icon for artifact
-  const getArtifactIcon = (artifact: ArtifactData) => {
-    if (artifact.language === 'project-spec') {
-      return <FileText className="h-4 w-4 mr-1.5 text-blue-500" />;
+  const handleCreateFolder = async (parentId: string | null = null) => {
+    const newFolder = await dbService.createFolder({
+      name: 'New Folder',
+      userId,
+      parentId: parentId || undefined,
+    });
+    setFolders(prev => [...prev, newFolder]);
+    setEditingFolderId(newFolder.id);
+    setEditingFolderName('New Folder');
+  };
+
+  const handleRenameFolder = async (folderId: string) => {
+    if (!editingFolderName.trim()) {
+      toast.error("Folder name can't be empty.");
+      return;
     }
-    return <FileCode className="h-4 w-4 mr-1.5 text-amber-500" />;
+    const updated = await dbService.updateFolder(folderId, { name: editingFolderName });
+    if (updated) {
+      setFolders(prev => prev.map(f => f.id === folderId ? updated : f));
+    }
+    setEditingFolderId(null);
+    setEditingFolderName('');
   };
 
-  // Helper function to get language badge color
-  const getLanguageBadgeColor = (language: string) => {
-    const colors: Record<string, string> = {
-      'javascript': 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300',
-      'typescript': 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
-      'html': 'bg-orange-500/20 text-orange-700 dark:text-orange-300',
-      'css': 'bg-purple-500/20 text-purple-700 dark:text-purple-300',
-      'project-spec': 'bg-green-500/20 text-green-700 dark:text-green-300'
-    };
-    
-    return colors[language] || 'bg-gray-500/20 text-gray-700 dark:text-gray-300';
+  const handleDeleteFolder = async (folderId: string) => {
+    await dbService.deleteFolder(folderId);
+    setFolders(prev => prev.filter(f => f.id !== folderId));
+    // Artifacts within the folder are now un-parented, you might want to refetch or update state
   };
+
+  const renderFolder = (folder: FolderWithArtifacts) => (
+    <div key={folder.id} className="select-none">
+      <div
+        className="flex items-center py-1 px-1.5 rounded hover:bg-muted/50 group"
+      >
+        <span className="mr-1 cursor-pointer" onClick={() => toggleFolder(folder.id)}>
+          {expandedFolders[folder.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </span>
+        <FolderIcon className="h-4 w-4 mr-1.5 text-yellow-500" />
+        {editingFolderId === folder.id ? (
+          <Input
+            type="text"
+            value={editingFolderName}
+            onChange={(e) => setEditingFolderName(e.target.value)}
+            onBlur={() => handleRenameFolder(folder.id)}
+            onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder(folder.id)}
+            className="h-6"
+            autoFocus
+          />
+        ) : (
+          <span>{folder.name}</span>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto opacity-0 group-hover:opacity-100">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleCreateFolder(folder.id)}>
+              <FolderPlus className="mr-2 h-4 w-4" />
+              <span>New Subfolder</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              setEditingFolderId(folder.id);
+              setEditingFolderName(folder.name);
+            }}>
+              <Edit className="mr-2 h-4 w-4" />
+              <span>Rename</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDeleteFolder(folder.id)} className="text-destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span>Delete</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {expandedFolders[folder.id] && (
+        <div className="ml-5 mt-1 space-y-1">
+          {folder.children.map(renderFolder)}
+          {folder.artifacts.map(artifact => (
+            <div
+              key={artifact.id}
+              className={cn(
+                "flex items-center py-1 px-1.5 rounded cursor-pointer hover:bg-muted/50",
+                artifact.id === activeArtifactId && "bg-muted"
+              )}
+              onClick={() => onSelectArtifact(artifact.id)}
+            >
+              <FileCode className="h-4 w-4 mr-1.5 text-amber-500" />
+              <span>{artifact.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="p-2 space-y-1 text-sm">
-      {Object.entries(folders).map(([folderName, artifacts]) => (
-        <div key={folderName} className="select-none">
-          <div 
-            className={cn(
-              "flex items-center py-1 px-1.5 rounded hover:bg-muted/50 cursor-pointer",
-              folderName === activeFolderId && "bg-muted"
-            )}
-            onClick={() => toggleFolder(folderName)}
-          >
-            <span className="mr-1">
-              {expandedFolders[folderName] ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
-            </span>
-            
-            {folderName === activeFolderId ? (
-              <FolderOpen className="h-4 w-4 mr-1.5 text-yellow-500" />
-            ) : (
-              <Folder className="h-4 w-4 mr-1.5 text-yellow-500" />
-            )}
-            
-            <span>{folderName}</span>
-            <Badge variant="outline" className="ml-auto">
-              {artifacts.length}
-            </Badge>
-          </div>
-          
-          {expandedFolders[folderName] && (
-            <div className="ml-5 mt-1 space-y-1">
-              {artifacts.map(artifact => (
-                <div 
-                  key={artifact.id}
-                  className={cn(
-                    "flex items-center py-1 px-1.5 rounded cursor-pointer hover:bg-muted/50",
-                    artifact.id === activeArtifactId && "bg-muted"
-                  )}
-                  onClick={() => onSelectArtifact(artifact.id)}
-                >
-                  {getArtifactIcon(artifact)}
-                  <span className="truncate flex-grow">{artifact.title || 'Untitled'}</span>
-                  <Badge 
-                    variant="secondary"
-                    className={cn(
-                      "ml-2 text-xs",
-                      getLanguageBadgeColor(artifact.language)
-                    )}
-                  >
-                    {artifact.language}
-                  </Badge>
-                </div>
-              ))}
-              
-              {artifacts.length === 0 && (
-                <div className="py-1 px-2 text-muted-foreground italic text-xs">
-                  No artifacts in this folder
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold">Explorer</h3>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCreateFolder(null)}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      {folderTree.map(renderFolder)}
     </div>
   );
 }

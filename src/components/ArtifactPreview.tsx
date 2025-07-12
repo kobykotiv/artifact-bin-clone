@@ -16,42 +16,34 @@ interface ArtifactPreviewProps {
 export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [artifactUrl, setArtifactUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    let url: string | null = null;
-    // Only generate URL if the tab is visible
-    if (isVisible) {
-      try {
-        const htmlContent = generatePreviewHTML(artifact);
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        url = URL.createObjectURL(blob);
-        setArtifactUrl(url);
-        setError(null); // Clear previous errors on successful generation
-      } catch (err) {
-        console.error("Error generating preview URL:", err);
-        setError(err instanceof Error ? err.message : 'An error occurred generating the preview URL');
-        setArtifactUrl(null);
-      }
-    } else {
-      // If tab is not visible, clear the URL to potentially save resources
-      setArtifactUrl(null);
+  const generatePreviewHTML = (artifact: ArtifactData): string => {
+    if (artifact.type === 'html' || artifact.language === 'html') {
+      // For multi-file web artifacts, we need to combine them
+      // This assumes a convention where `content` is HTML, and you might have
+      // associated `css` and `javascript` properties.
+      // This part needs to be adapted based on how you actually store related files.
+      // For now, let's assume a simple structure on the artifact object.
+      const css = (artifact.metadata as any)?.css || '';
+      const js = (artifact.metadata as any)?.javascript || '';
+      
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>${css}</style>
+          </head>
+          <body>
+            ${artifact.content}
+            <script>${js}</script>
+          </body>
+        </html>
+      `;
     }
 
-    // Cleanup function to revoke the URL when the component unmounts or dependencies change
-    return () => {
-      if (url) {
-        URL.revokeObjectURL(url);
-      }
-    };
-  }, [artifact, isVisible]); // Re-run effect if artifact or visibility changes
-
-  const generatePreviewHTML = (artifact: ArtifactData): string => { // Use ArtifactData type
     const baseStyle = `body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 1rem; line-height: 1.6; color: #333; background-color: #f9f9f9; } h1, h2, h3 { margin-top: 1.5em; margin-bottom: 0.5em; } h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } h3 { font-size: 1.2em; } code { background: #e1e1e1; padding: 0.2em 0.4em; border-radius: 3px; font-family: monospace; } pre { background: #e8e8e8; padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid #ddd; } p { margin-bottom: 1em; } strong { font-weight: 600; } em { font-style: italic; } ul, ol { margin-left: 1.5em; margin-bottom: 1em; } li { margin-bottom: 0.5em; } blockquote { border-left: 3px solid #ccc; padding-left: 1em; margin-left: 0; font-style: italic; color: #555; }`;
-    // More permissive CSP for previewing various content, adjust as needed for security
-    const csp = `default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; img-src data: https:; script-src 'unsafe-inline' https://unpkg.com; font-src data: https:; connect-src https:; frame-src 'self';`; // Added frame-src 'self' for potential nested previews if needed
+    const csp = `default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; img-src data: https:; script-src 'unsafe-inline' https://unpkg.com; font-src data: https:; connect-src https:; frame-src 'self';`;
 
-    // Define interface for project generator data (can be kept internal or moved to a shared types file)
     interface ProjectData {
         id?: string; // Add id if it's part of the spec
         name?: string;
@@ -70,11 +62,9 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
         stars?: number;
     }
 
-    // Handle Project Generator type specifically
-    if (artifact.language === PROJECT_SPEC_LANG) { // Updated check
+    if (artifact.language === PROJECT_SPEC_LANG) {
         let projectData: ProjectData = { name: artifact.title, description: 'Could not parse project data.' };
         try {
-            // Use artifact.content which holds the JSON string
             projectData = JSON.parse(artifact.content || '{}') as ProjectData;
         } catch (e) {
              console.error("Error parsing project data for preview:", e);
@@ -82,7 +72,6 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
         const featuresList = Array.isArray(projectData.features) ? projectData.features.map(f => `<li>${escapeHtml(f)}</li>`).join('') : '<li>None</li>';
         const pseudocodePreview = projectData.pseudocode ? `<pre><code>${escapeHtml(projectData.pseudocode)}</code></pre>` : '<p><em>No pseudocode generated yet.</em></p>';
 
-        // Use projectData.name if available, fallback to artifact.title
         const projectName = projectData.name || artifact.title || 'Untitled Project';
 
         return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style><title>Project: ${escapeHtml(projectName)}</title></head><body>
@@ -100,156 +89,64 @@ export function ArtifactPreview({ artifact, isVisible }: ArtifactPreviewProps) {
             <h2>Features</h2>
             <ul>${featuresList}</ul>
 
-            <h2>Pseudocode Preview</h2>
+            <h2>Pseudocode</h2>
             ${pseudocodePreview}
+            
             </body></html>`;
     }
 
-    // Handle other languages
-    if (!artifact.language) {
-      // Plaintext preview if no language selected
-      // Use artifact.content
-      return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} code {white-space: pre; font-family: monospace;}</style></head><body><pre><code>${escapeHtml(artifact.content)}</code></pre></body></html>`;
-    }
+    // Fallback for other types like markdown, text, etc.
+    // This simple preview just wraps the content in a <pre> tag.
+    return `<!DOCTYPE html><html><head><style>${baseStyle}</style><title>Preview: ${escapeHtml(artifact.title)}</title></head><body><pre>${escapeHtml(artifact.content)}</pre></body></html>`;
+  };
 
-    switch (artifact.language) {
-      case 'html':
-        // Use artifact.content
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body>${artifact.content}</body></html>`;
-      case 'css':
-        // Use artifact.content
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} ${artifact.content}</style></head><body><h1>CSS Preview</h1><p>This is a paragraph with <a href="#">a link</a>.</p><button>Button</button><div class="box" style="border:1px solid #ccc; padding: 10px; margin-top: 10px;">A div with class "box"</div><a href="https://github.com/your-repo" style="position: fixed; bottom: 10px; right: 10px; background: #000; color: #fff; padding: 5px 10px; text-decoration: none; border-radius: 5px;">Fork me on GitHub</a></body></html>`;
-      case 'javascript':
-        // Use artifact.content
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body><h3>JavaScript Output:</h3><div id="output" style="border:1px solid #ddd; padding:1rem; min-height: 50px; margin-top:1rem; white-space: pre-wrap;"></div><script>
-        // Capture console.log, console.error, console.warn
-        const output = document.getElementById('output');
-        const originalConsole = { log: console.log, error: console.error, warn: console.warn };
-        const capture = (type, args) => {
-          const line = document.createElement('div');
-          line.textContent = \`[\${type.toUpperCase()}] \${Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}\`;
-          if (type === 'error') line.style.color = 'red';
-          if (type === 'warn') line.style.color = 'orange';
-          output.appendChild(line);
-        };
-        console.log = (...args) => { capture('log', args); originalConsole.log(...args); };
-        console.error = (...args) => { capture('error', args); originalConsole.error(...args); };
-        console.warn = (...args) => { capture('warn', args); originalConsole.warn(...args); };
-        window.onerror = (message, source, lineno, colno, error) => {
-          console.error(\`Uncaught Error: \${message} (\${lineno}:\${colno})\`);
-          return true; // Prevent default browser error handling
-        };
-        try {
-          ${artifact.content}; // Use artifact.content
-        } catch (e) {
-          console.error(e);
-        }
-        </script></body></html>`;
-      case 'jsx':
-      case 'tsx':
-        // Use artifact.content
-        // Note: This preview remains highly experimental and likely needs a build step
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body><div id="root">Loading React Component...</div><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script>
-        try {
-          // Basic Babel standalone setup (consider a more robust solution for complex JSX/TSX)
-          const transformedCode = artifact.content; // Use artifact.content (needs transformation)
-
-          // Assuming the artifact code defines a component named 'App'
-          // This part needs refinement based on how JSX/TSX is actually handled/transformed
-          // For now, it might fail if the code isn't plain JS defining React elements
-
-          // Example: If artifact.content is like \`return <h1>Hello</h1>;\`
-          function App() {
-             // This eval is risky and limited. A proper build step or Babel standalone is better.
-             // return eval(transformedCode); // Highly simplified and potentially insecure/broken
-             // Placeholder rendering:
-             return React.createElement('div', null, 'Previewing React code (requires transformation)');
-          }
-
-          const root = ReactDOM.createRoot(document.getElementById('root'));
-          root.render(React.createElement(App));
-        } catch (e) {
-          console.error('React Render Error:', e);
-          document.getElementById('root').innerHTML = '<div style="color: red; border: 1px solid red; padding: 1rem;">Error rendering React component: ' + e.message + '<br><br>Note: Live JSX/TSX rendering in preview is complex and may require code transformation.</div>';
-        }
-        </script></body></html>`;
-      case 'markdown':
-        // Use artifact.content
-        const mdHtml = artifact.content
-          .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-          .replace(/^## (.+)$/gm, '<h2>$1</h2>') // Corrected capture group
-          .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.+?)\*/g, '<em>$1</em>')
-          .replace(/`(.+?)`/g, '<code>$1</code>')
-          .replace(/```([\s\S]*?)```/g, (match, p1) => `<pre><code>${escapeHtml(p1)}</code></pre>`) // Escape code inside blocks
-          .replace(/!\[(.*?)\]\((.*?)\)/g, '<img alt="$1" src="$2">') // Basic image support
-          .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>') // Basic link support
-          .split('\n')
-          .map(line => {
-              if (line.match(/^(<h1>|<h2>|<h3>|<pre>|<ul>|<ol>|<li>|<blockquote>)/)) return line; // Keep block elements
-              return line.trim() === '' ? '' : `<p>${line}</p>`; // Wrap others in <p>
-          })
-          .join(''); // Join lines back
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle}</style></head><body>${mdHtml}</body></html>`;
-      default:
-        // Default to plaintext preview for unknown languages
-        // Use artifact.content
-        return `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${baseStyle} code {white-space: pre; font-family: monospace;}</style></head><body><pre><code>${escapeHtml(artifact.content)}</code></pre></body></html>`;
+  const handleExport = () => {
+    if (iframeRef.current?.contentWindow) {
+      exportArtifactToPDF(artifact, iframeRef.current.contentWindow);
     }
   };
 
-  // Utility function to escape HTML characters
-  const escapeHtml = (text: string): string => {
-    if (!text) return '';
-    const map: { [key: string]: string } = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, (m) => map[m]);
+  const escapeHtml = (unsafe: string): string => {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+  };
+
+  if (!isVisible) {
+    return null; // Don't render anything if not visible
   }
 
-  // Determine sandbox attributes based on language
-  let sandboxAttrs = "allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"; // Allow scripts by default for JS/React
-  // Restrict further if not a scriptable language (adjust as needed)
-  if (!['javascript', 'jsx', 'tsx', 'html'].includes(artifact.language || '')) {
-      sandboxAttrs = "allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin"; // No scripts for CSS, Markdown, plaintext etc.
+  if (error) {
+    return (
+      <div className="p-4 text-red-600">
+        <AlertCircle className="inline-block mr-2" />
+        Error rendering preview: {error}
+      </div>
+    );
   }
-  // For HTML, consider if scripts inside the HTML should run. If not, remove 'allow-scripts'.
-  // if (artifact.language === 'html') { sandboxAttrs = "allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin"; }
-
+  
+  const srcDoc = generatePreviewHTML(artifact);
 
   return (
-    <div className="h-full flex flex-col relative bg-gray-100">
-      <div className="absolute top-2 right-2 z-10">
-        <Button
-          variant="outline"
-          size="sm"
-          className="bg-white"
-          onClick={() => exportArtifactToPDF(artifact)}
-        >
-          <FileDown className="h-4 w-4 mr-1" />
-          Export PDF
+    <div className="w-full h-full flex flex-col">
+      <div className="flex-shrink-0 p-2 border-b flex items-center justify-end">
+        <Button variant="outline" size="sm" onClick={handleExport}>
+          <FileDown className="h-4 w-4 mr-2" />
+          Export to PDF
         </Button>
       </div>
-      {error && (
-        <div className="absolute top-2 left-2 right-2 bg-destructive/10 text-destructive p-2 rounded-md text-xs flex items-center gap-1 z-10 border border-destructive/30">
-          <AlertCircle className="h-3 w-3 flex-shrink-0" />
-          <span className="truncate">Preview Error: {error}</span>
-        </div>
-      )}
-      <iframe
-        ref={iframeRef}
-        key={artifactUrl} // Force re-render when URL changes
-        title={`Preview of ${artifact.title}`}
-        className="w-full h-full border-0 bg-white" // Keep white background for content area
-        sandbox={sandboxAttrs}
-        src={artifactUrl || "about:blank"} // Use Blob URL or about:blank
-        // Remove srcDoc as we are using src with Blob URL now
-      />
+      <div className="flex-grow relative">
+        <iframe
+          ref={iframeRef}
+          srcDoc={srcDoc}
+          sandbox="allow-scripts" // allow-scripts is needed for JS execution in preview
+          className="w-full h-full border-0"
+          title="Artifact Preview"
+        />
+      </div>
     </div>
   );
 }

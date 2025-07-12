@@ -1,7 +1,8 @@
 import JSZip from 'jszip';
-import { type Artifact, getAllArtifacts, saveArtifact } from './db';
+import { type ArtifactData, dbService } from '@/lib/services/db';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { type TDocumentDefinitions } from 'pdfmake/interfaces';
+import htmlToPdfmake from 'html-to-pdfmake';
 
 // We need to load the default fonts
 pdfMake.fonts = {
@@ -16,17 +17,32 @@ pdfMake.fonts = {
 /**
  * Exports an artifact to a PDF file
  */
-export const exportArtifactToPDF = async (artifact: Artifact): Promise<void> => {
+export const exportArtifactToPDF = async (artifact: ArtifactData, contentWindow?: Window | null): Promise<void> => {
   try {
-    const docDefinition: TDocumentDefinitions = {
-      content: [
+    let content: any[];
+
+    if (contentWindow) {
+      // If a content window is provided (from an iframe), use its content
+      const html = contentWindow.document.body.innerHTML;
+      content = [
+        { text: artifact.title || 'Untitled Artifact', style: 'header' },
+        { text: `Type: ${artifact.type} (${artifact.language})`, style: 'meta', margin: [0, 0, 0, 20] },
+        htmlToPdfmake(html)
+      ];
+    } else {
+      // Fallback to original code export if no preview window
+      content = [
         { text: artifact.title || 'Untitled Artifact', style: 'header' },
         { text: `Created: ${new Date(artifact.createdAt).toLocaleString()}`, style: 'meta' },
         { text: `Updated: ${new Date(artifact.updatedAt).toLocaleString()}`, style: 'meta' },
         { text: `Language: ${artifact.language}`, style: 'meta', margin: [0, 0, 0, 20] },
-        { text: 'Code:', style: 'subheader' },
-        { text: artifact.code, style: 'code' }
-      ],
+        { text: 'Content:', style: 'subheader' },
+        { text: artifact.content, style: 'code' }
+      ];
+    }
+
+    const docDefinition: TDocumentDefinitions = {
+      content,
       styles: {
         header: {
           fontSize: 24,
@@ -68,7 +84,7 @@ export const exportArtifactToPDF = async (artifact: Artifact): Promise<void> => 
 export const exportArtifacts = async (): Promise<void> => {
   try {
     // Get all artifacts from the database
-    const artifacts = await getAllArtifacts();
+    const artifacts = await dbService.getAllArtifacts();
     if (artifacts.length === 0) {
       throw new Error('No artifacts to export');
     }
@@ -95,7 +111,7 @@ export const exportArtifacts = async (): Promise<void> => {
     artifacts.forEach(artifact => {
       const filename = `${artifact.title || 'untitled'}-${artifact.id.slice(0, 8)}.${artifact.language}`;
       const safeFilename = filename.replace(/[^a-z0-9.-]/gi, '_');
-      artifactsFolder.file(safeFilename, artifact.code);
+      artifactsFolder.file(safeFilename, artifact.content);
     });
     
     // Generate the zip file
@@ -119,55 +135,36 @@ export const exportArtifacts = async (): Promise<void> => {
 };
 
 /**
- * Imports artifacts from a zip file
+ * Imports artifacts from a JSON file.
+ * @param file The JSON file to import.
  */
-export const importArtifacts = async (file: File): Promise<{ imported: number; total: number }> => {
+export const importArtifacts = async (file: File): Promise<void> => {
   try {
-    // Load the zip file
-    const zipContent = await JSZip.loadAsync(file);
-    
-    // First, try to find and read artifacts.json
-    const artifactsFile = zipContent.file('artifacts.json');
-    if (!artifactsFile) {
-      throw new Error('Invalid export file: Missing artifacts.json');
-    }
-    
-    // Parse the artifacts
-    const artifactsJson = await artifactsFile.async('text');
-    const artifacts = JSON.parse(artifactsJson) as Partial<Artifact>[]; // Use Partial<Artifact>
-    
-    if (!Array.isArray(artifacts)) {
-      throw new Error('Invalid artifacts format');
-    }
-    
-    // Import each artifact
-    let successCount = 0;
-    for (const partialArtifact of artifacts) {
-      // Validate minimum required fields
-      if (!partialArtifact.id || typeof partialArtifact.code !== 'string') {
-        console.warn('Skipping invalid artifact data:', partialArtifact.id);
+    const artifactsJson = await file.text();
+    const artifacts = JSON.parse(artifactsJson) as Partial<ArtifactData>[];
+
+    for (const artifact of artifacts) {
+      if (!artifact.userId) {
+        // Assign to a default user or handle as an error
+        console.warn('Artifact is missing userId, skipping:', artifact.title);
         continue;
       }
-      
-      // Ensure all required fields have valid values, generate avatarSeed if missing
-      const normalizedArtifact: Artifact = {
-        id: partialArtifact.id,
-        title: partialArtifact.title || 'Imported Artifact',
-        language: partialArtifact.language || 'plain',
-        code: partialArtifact.code,
-        createdAt: partialArtifact.createdAt || new Date().toISOString(),
-        updatedAt: partialArtifact.updatedAt || new Date().toISOString(),
-        avatarSeed: partialArtifact.avatarSeed || crypto.randomUUID(), // Generate seed if missing
+      // Ensure essential fields are present
+      const normalizedArtifact: Omit<ArtifactData, 'id'> = {
+        userId: artifact.userId,
+        title: artifact.title || 'Untitled Imported Artifact',
+        type: artifact.type || 'text',
+        content: artifact.content || '',
+        language: artifact.language || 'plaintext',
+        createdAt: artifact.createdAt || new Date().toISOString(),
+        updatedAt: artifact.updatedAt || new Date().toISOString(),
+        folderId: artifact.folderId,
+        metadata: artifact.metadata || {},
+        avatarSeed: artifact.avatarSeed,
+        code: artifact.code,
       };
-      
-      await saveArtifact(normalizedArtifact);
-      successCount++;
+      await dbService.createArtifact(normalizedArtifact);
     }
-    
-    return {
-      imported: successCount,
-      total: artifacts.length
-    };
   } catch (error) {
     console.error('Import failed:', error);
     throw error;

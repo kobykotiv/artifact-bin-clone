@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { JsonFormView } from './JsonFormView';
 import { formatJSON } from '@/lib/utils/formatHelpers';
 import { AlertTriangle, Code, FileJson } from 'lucide-react';
 import { toast } from 'sonner';
+import type { editor } from 'monaco-editor';
 
 interface JsonEditorProps {
   value: string;
@@ -17,6 +18,7 @@ export function JsonEditor({ value, onChange, readOnly = false }: JsonEditorProp
   const [mode, setMode] = useState<'raw' | 'form'>('raw');
   const [parsedJson, setParsedJson] = useState<any>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   
   // Parse the JSON string when value changes
   useEffect(() => {
@@ -29,6 +31,10 @@ export function JsonEditor({ value, onChange, readOnly = false }: JsonEditorProp
       // Don't update parsedJson if there's an error
     }
   }, [value]);
+
+  function handleEditorDidMount(editor: editor.IStandaloneCodeEditor) {
+    editorRef.current = editor;
+  }
 
   // Handle changes from the form view
   const handleFormChange = (newJson: any) => {
@@ -43,12 +49,17 @@ export function JsonEditor({ value, onChange, readOnly = false }: JsonEditorProp
 
   // Format the raw JSON
   const handleFormat = () => {
-    try {
-      const formatted = formatJSON(JSON.parse(value || '{}'));
-      onChange(formatted);
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.formatDocument')?.run();
       toast.success('JSON formatted');
-    } catch (error) {
-      toast.error('Invalid JSON');
+    } else {
+      try {
+        const formatted = formatJSON(JSON.parse(value || '{}'));
+        onChange(formatted);
+        toast.success('JSON formatted');
+      } catch (error) {
+        toast.error('Invalid JSON');
+      }
     }
   };
 
@@ -75,12 +86,25 @@ export function JsonEditor({ value, onChange, readOnly = false }: JsonEditorProp
         </div>
         
         <TabsContent value="raw">
-          <Textarea
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            readOnly={readOnly}
-            className="min-h-[300px] font-mono"
-          />
+          <div className="border rounded-md overflow-hidden">
+            <Editor
+              height="300px"
+              language="json"
+              value={value || ''}
+              onChange={(v) => onChange(v || '')}
+              onMount={handleEditorDidMount}
+              theme="vs-dark"
+              options={{
+                readOnly,
+                minimap: { enabled: false },
+                fontSize: 14,
+                fontFamily: 'JetBrains Mono',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                wordWrap: 'on',
+              }}
+            />
+          </div>
           
           {parseError && (
             <div className="mt-2 p-2 bg-destructive/10 text-destructive rounded flex items-start gap-2">

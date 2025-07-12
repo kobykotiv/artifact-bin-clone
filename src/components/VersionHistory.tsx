@@ -1,29 +1,52 @@
+import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { History, Check, ArrowLeft, ArrowRight, Clock } from 'lucide-react';
+import { History, Check, GitCommit, Clock, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface Version {
-  id: string;
-  versionNumber: string;
-  updatedAt: string;
-  changeDescription: string;
-  author: string;
-}
+import { versioningService, type ArtifactVersion } from '@/lib/versioning';
+import { toast } from 'sonner';
 
 interface VersionHistoryProps {
   artifactId: string | null;
-  versions: Version[];
-  currentVersion: string | null;
-  onSelectVersion: (version: string) => void;
+  onRevert: (content: string) => void;
 }
 
 export function VersionHistory({ 
   artifactId, 
-  versions, 
-  currentVersion, 
-  onSelectVersion 
+  onRevert
 }: VersionHistoryProps) {
+  const [versions, setVersions] = useState<ArtifactVersion[]>([]);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (artifactId) {
+      const fetchVersions = async () => {
+        const fetchedVersions = await versioningService.getVersions(artifactId);
+        setVersions(fetchedVersions);
+        // The first version in the list is the current one
+        if (fetchedVersions.length > 0) {
+          setSelectedVersionId(fetchedVersions[0].id);
+        }
+      };
+      fetchVersions();
+    } else {
+      setVersions([]);
+      setSelectedVersionId(null);
+    }
+  }, [artifactId]);
+
+  const handleRevert = async () => {
+    if (!artifactId || !selectedVersionId) return;
+
+    const versionToRevert = await versioningService.getVersion(artifactId, selectedVersionId);
+    if (versionToRevert) {
+      onRevert(versionToRevert.content);
+      toast.success(`Reverted to version from ${new Date(versionToRevert.createdAt).toLocaleString()}`);
+    } else {
+      toast.error("Could not find the selected version to revert.");
+    }
+  };
+
   if (!artifactId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -50,43 +73,45 @@ export function VersionHistory({
     <div className="p-2 h-full flex flex-col">
       <div className="flex justify-between items-center mb-2">
         <h3 className="font-medium">Version History</h3>
-        <div className="flex gap-1">
-          <Button variant="outline" size="icon" className="h-7 w-7">
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7">
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRevert}
+          disabled={!selectedVersionId || selectedVersionId === versions[0]?.id}
+        >
+          <RefreshCw className="h-3.5 w-3.5 mr-2" />
+          Revert to Selected
+        </Button>
       </div>
       
       <ScrollArea className="flex-grow">
         <div className="space-y-1.5">
-          {versions.map(version => (
+          {versions.map((version, index) => (
             <Button
               key={version.id}
               variant="ghost"
               className={cn(
                 "w-full justify-start text-left h-auto py-2",
-                currentVersion === version.id && "bg-muted"
+                selectedVersionId === version.id && "bg-muted"
               )}
-              onClick={() => onSelectVersion(version.id)}
+              onClick={() => setSelectedVersionId(version.id)}
             >
               <div className="flex items-start">
                 <div className="flex-shrink-0 mr-2 mt-0.5">
-                  {currentVersion === version.id ? (
+                  {index === 0 ? (
                     <Check className="h-3.5 w-3.5 text-green-500" />
                   ) : (
-                    <History className="h-3.5 w-3.5 text-muted-foreground" />
+                    <GitCommit className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </div>
                 <div className="space-y-1">
-                  <p className="font-medium text-sm leading-tight">v{version.versionNumber}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">
-                    {new Date(version.updatedAt).toLocaleString()}
+                  <p className="font-medium text-sm leading-tight">
+                    {version.commitMessage || `Update at ${new Date(version.createdAt).toLocaleTimeString()}`}
                   </p>
-                  <p className="text-xs leading-tight">{version.changeDescription}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">By {version.author}</p>
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    {new Date(version.createdAt).toLocaleString()}
+                  </p>
+                  {index === 0 && <span className="text-xs font-semibold text-green-600">(Current)</span>}
                 </div>
               </div>
             </Button>

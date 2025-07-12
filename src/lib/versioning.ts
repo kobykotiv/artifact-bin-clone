@@ -1,56 +1,82 @@
-import { ArtifactData } from '@/lib/services/db';
+import { dbService, type ArtifactData } from '@/lib/services/db';
 
-export interface VersionRecord {
-  versionId: string;
-  timestamp: string;
-  changes: string;
-  userId: string;
+export interface ArtifactVersion {
+  id: string;
   artifactId: string;
-  contentSnapshot: string;
+  content: string;
+  createdAt: string;
+  commitMessage?: string;
 }
 
-/**
- * Semantic versioning helper for artifacts
- */
-export function generateVersion(
-  artifact: ArtifactData,
-  changeType: 'major' | 'minor' | 'patch',
-  currentVersion?: string
-): string {
-  // Parse current version or start at 0.1.0
-  let [major, minor, patch] = (currentVersion || '0.1.0')
-    .split('.')
-    .map(v => parseInt(v, 10));
+class VersioningService {
+  private versions: Map<string, ArtifactVersion[]> = new Map();
 
-  // Increment based on change type
-  if (changeType === 'major') {
-    major += 1;
-    minor = 0;
-    patch = 0;
-  } else if (changeType === 'minor') {
-    minor += 1;
-    patch = 0;
-  } else {
-    patch += 1;
+  constructor() {
+    this.load();
   }
 
-  return `${major}.${minor}.${patch}`;
+  async createVersion(artifactId: string, content: string, commitMessage?: string): Promise<ArtifactVersion> {
+    const newVersion: ArtifactVersion = {
+      id: crypto.randomUUID(),
+      artifactId,
+      content,
+      commitMessage,
+      createdAt: new Date().toISOString(),
+    };
+
+    const artifactVersions = this.versions.get(artifactId) || [];
+    // Keep the most recent versions at the top
+    artifactVersions.unshift(newVersion);
+    this.versions.set(artifactId, artifactVersions);
+
+    await this.persist();
+    return newVersion;
+  }
+
+  async getVersions(artifactId: string): Promise<ArtifactVersion[]> {
+    return this.versions.get(artifactId) || [];
+  }
+
+  async getVersion(artifactId: string, versionId: string): Promise<ArtifactVersion | null> {
+    const versions = this.versions.get(artifactId) || [];
+    return versions.find(v => v.id === versionId) || null;
+  }
+
+  private async persist() {
+    localStorage.setItem('db_versions', JSON.stringify(Array.from(this.versions.entries())));
+  }
+
+  private async load() {
+    try {
+      const versionsData = localStorage.getItem('db_versions');
+      if (versionsData) {
+        this.versions = new Map(JSON.parse(versionsData));
+      }
+    } catch (error) {
+      console.error("Failed to load version data from localStorage", error);
+      this.versions = new Map();
+    }
+  }
 }
 
+export const versioningService = new VersioningService();
+
 /**
- * Create a version record for an artifact change
+ * A wrapper function to update an artifact and automatically create a new version.
+ * This should be used instead of dbService.updateArtifact directly when versioning is desired.
  */
-export function createVersionRecord(
-  artifact: ArtifactData,
-  userId: string,
-  changeDescription: string
-): VersionRecord {
-  return {
-    versionId: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    changes: changeDescription,
-    userId,
-    artifactId: artifact.id,
-    contentSnapshot: artifact.content
-  };
+export async function updateArtifactAndCreateVersion(
+  id: string,
+  updates: Partial<ArtifactData>,
+  commitMessage?: string
+): Promise<ArtifactData | null> {
+  const updatedArtifact = await dbService.updateArtifact(id, updates);
+  if (updatedArtifact) {
+    // Create a version only if the content has changed.
+    const currentVersion = (await versioningService.getVersions(id))[0];
+    if (!currentVersion || currentVersion.content !== updatedArtifact.content) {
+      await versioningService.createVersion(id, updatedArtifact.content, commitMessage);
+    }
+  }
+  return updatedArtifact;
 }

@@ -13,7 +13,8 @@ export interface ArtifactData {
   metadata?: any;
   avatarSeed?: string;
   code?: string;
-  // ...any other needed fields...
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FolderData {
@@ -130,110 +131,55 @@ class DBService {
     return prompt;
   }
 
+  async getPrompt(id: string): Promise<PromptData | null> {
+    return this.prompts.get(id) || null;
+  }
+
+  async getAllPrompts(): Promise<PromptData[]> {
+    return Array.from(this.prompts.values());
+  }
+
   async updatePrompt(id: string, updates: Partial<PromptData>): Promise<PromptData | null> {
     const prompt = this.prompts.get(id);
     if (!prompt) {
       return null;
     }
 
-    const updatedPrompt = {
-      ...prompt,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-      version: prompt.version + 1
-    };
-
+    const updatedPrompt = { ...prompt, ...updates, updatedAt: new Date().toISOString() };
     this.prompts.set(id, updatedPrompt);
     await this.persist();
     return updatedPrompt;
   }
 
   async deletePrompt(id: string): Promise<boolean> {
-    const result = this.prompts.delete(id);
-    await this.persist();
-    return result;
-  }
-
-  async getPrompt(id: string): Promise<PromptData | null> {
-    return this.prompts.get(id) || null;
-  }
-
-  async getPromptsByUser(userId: string): Promise<PromptData[]> {
-    return Array.from(this.prompts.values()).filter(prompt => prompt.userId === userId);
-  }
-
-  async getPublicPrompts(): Promise<PromptData[]> {
-    return Array.from(this.prompts.values()).filter(prompt => prompt.isPublic);
-  }
-
-  async forkPrompt(promptId: string, userId: string): Promise<PromptData | null> {
-    const prompt = this.prompts.get(promptId);
-    if (!prompt) {
-      return null;
+    const deleted = this.prompts.delete(id);
+    if (deleted) {
+      await this.persist();
     }
-
-    const forkedPrompt: PromptData = {
-      ...prompt,
-      id: crypto.randomUUID(),
-      userId,
-      parentId: promptId,
-      version: 1,
-      performance: {
-        successRate: 0,
-        averageTokens: 0,
-        totalUses: 0,
-        lastUsed: new Date().toISOString(),
-        averageResponseTime: 0,
-        errorRate: 0
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    this.prompts.set(forkedPrompt.id, forkedPrompt);
-    await this.persist();
-    return forkedPrompt;
-  }
-
-  async searchPrompts(query: string): Promise<PromptData[]> {
-    const searchTerm = query.toLowerCase();
-    return Array.from(this.prompts.values()).filter(prompt => 
-      prompt.isPublic && (
-        prompt.title.toLowerCase().includes(searchTerm) ||
-        prompt.description.toLowerCase().includes(searchTerm) ||
-        prompt.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-      )
-    );
-  }
-
-  async updatePromptMetrics(prompt: PromptData, metrics: Partial<PromptData['performance']>): Promise<PromptData | null> {
-    const existingPrompt = this.prompts.get(prompt.id);
-    if (!existingPrompt) {
-      return null;
-    }
-
-    const updatedPrompt = {
-      ...existingPrompt,
-      performance: {
-        ...existingPrompt.performance,
-        ...metrics,
-        lastUsed: new Date().toISOString()
-      }
-    };
-
-    this.prompts.set(prompt.id, updatedPrompt);
-    await this.persist();
-    return updatedPrompt;
+    return deleted;
   }
 
   // Artifact Operations
-  async createArtifact(artifactData: Omit<ArtifactData, 'id' | 'createdAt' | 'updatedAt'>): Promise<ArtifactData> {
+  async createArtifact(artifactData: Partial<ArtifactData>): Promise<ArtifactData> {
+    if (!artifactData.userId) {
+      throw new Error('User ID is required');
+    }
+
+    const now = new Date().toISOString();
     const artifact: ArtifactData = {
-      ...artifactData,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      title: artifactData.title || 'Untitled Artifact',
+      type: artifactData.type || 'text',
+      content: artifactData.content || '',
+      language: artifactData.language || 'plaintext',
+      userId: artifactData.userId,
+      folderId: artifactData.folderId,
+      metadata: artifactData.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+      ...artifactData,
     };
+
     this.artifacts.set(artifact.id, artifact);
     await this.persist();
     return artifact;
@@ -243,52 +189,53 @@ class DBService {
     return this.artifacts.get(id) || null;
   }
 
-  async getArtifactsByUser(userId: string): Promise<ArtifactData[]> {
-    return Array.from(this.artifacts.values()).filter(artifact => artifact.userId === userId);
-  }
-
-  async getArtifactsByFolder(folderId: string): Promise<ArtifactData[]> {
-    return Array.from(this.artifacts.values()).filter(artifact => artifact.folderId === folderId);
-  }
-
-  async getArtifactsByProject(projectId: string): Promise<ArtifactData[]> {
-    return Array.from(this.artifacts.values()).filter(artifact => artifact.projectId === projectId);
+  async getAllArtifacts(): Promise<ArtifactData[]> {
+    return Array.from(this.artifacts.values());
   }
 
   async updateArtifact(id: string, updates: Partial<ArtifactData>): Promise<ArtifactData | null> {
     const artifact = this.artifacts.get(id);
-    if (!artifact) return null;
-    const updatedArtifact = { ...artifact, ...updates, updatedAt: new Date().toISOString() };
+    if (!artifact) {
+      return null;
+    }
+
+    const updatedArtifact = {
+      ...artifact,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
     this.artifacts.set(id, updatedArtifact);
     await this.persist();
     return updatedArtifact;
   }
 
-  async saveArtifact(artifactData: ArtifactData): Promise<ArtifactData> {
-    const existing = this.artifacts.get(artifactData.id);
-    if (existing) {
-      // Update existing artifact
-      return await this.updateArtifact(artifactData.id, artifactData) as ArtifactData; // Cast needed as update can return null
-    } else {
-      // Create new artifact
-      return await this.createArtifact(artifactData);
+  async deleteArtifact(id: string): Promise<boolean> {
+    const deleted = this.artifacts.delete(id);
+    if (deleted) {
+      await this.persist();
     }
+    return deleted;
   }
 
-  async deleteArtifact(id: string): Promise<boolean> {
-    const result = this.artifacts.delete(id);
-    await this.persist();
-    return result;
+  async getArtifactsByUser(userId: string): Promise<ArtifactData[]> {
+    return Array.from(this.artifacts.values()).filter(a => a.userId === userId);
   }
 
   // Folder Operations
-  async createFolder(folderData: Omit<FolderData, 'id' | 'createdAt' | 'updatedAt'>): Promise<FolderData> {
+  async createFolder(folderData: Partial<FolderData>): Promise<FolderData> {
+    if (!folderData.userId) {
+      throw new Error('User ID is required');
+    }
+    const now = new Date().toISOString();
     const folder: FolderData = {
-      ...folderData,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      userId: folderData.userId,
+      name: folderData.name || 'New Folder',
+      parentId: folderData.parentId,
+      createdAt: now,
+      updatedAt: now,
     };
+
     this.folders.set(folder.id, folder);
     await this.persist();
     return folder;
@@ -299,7 +246,7 @@ class DBService {
   }
 
   async getFoldersByUser(userId: string): Promise<FolderData[]> {
-    return Array.from(this.folders.values()).filter(folder => folder.userId === userId);
+    return Array.from(this.folders.values()).filter(f => f.userId === userId);
   }
 
   async updateFolder(id: string, updates: Partial<FolderData>): Promise<FolderData | null> {
@@ -312,92 +259,18 @@ class DBService {
   }
 
   async deleteFolder(id: string): Promise<boolean> {
-    // Consider deleting artifacts within the folder or reassigning them
-    const result = this.folders.delete(id);
-    await this.persist();
-    return result;
-  }
+    // Also handle moving artifacts from the deleted folder
+    const artifactsInFolder = Array.from(this.artifacts.values()).filter(a => a.folderId === id);
+    for (const artifact of artifactsInFolder) {
+      artifact.folderId = undefined;
+      this.artifacts.set(artifact.id, artifact);
+    }
 
-  async moveArtifactToFolder(artifactId: string, folderId: string): Promise<ArtifactData | null> {
-    const artifact = this.artifacts.get(artifactId);
-    if (!artifact) return null;
-    
-    artifact.folderId = folderId;
-    artifact.updatedAt = new Date().toISOString();
-    this.artifacts.set(artifactId, artifact);
-    await this.persist();
-    return artifact;
-  }
-
-  async shareFolder(folderId: string, userIdsToShare: string[]): Promise<FolderData | null> {
-    const folder = this.folders.get(folderId);
-    if (!folder) return null;
-    
-    folder.isShared = true;
-    folder.sharedWith = [...new Set([...folder.sharedWith, ...userIdsToShare])];
-    folder.updatedAt = new Date().toISOString();
-    this.folders.set(folderId, folder);
-    await this.persist();
-    return folder;
-  }
-
-  // Enhanced folder methods
-  async getFolderWithContents(folderId: string): Promise<{folder: FolderData, artifacts: ArtifactData[]}> {
-    const folder = await this.getFolder(folderId);
-    if (!folder) return { folder: null, artifacts: [] };
-    
-    const artifacts = await this.getArtifactsByFolder(folderId);
-    return { folder, artifacts };
-  }
-
-  async moveArtifactsToFolder(artifactIds: string[], folderId: string): Promise<boolean> {
-    try {
-      for (const id of artifactIds) {
-        const artifact = this.artifacts.get(id);
-        if (artifact) {
-          artifact.folderId = folderId;
-          artifact.updatedAt = new Date().toISOString();
-          this.artifacts.set(id, artifact);
-        }
-      }
+    const deleted = this.folders.delete(id);
+    if (deleted) {
       await this.persist();
-      return true;
-    } catch (error) {
-      console.error('Failed to move artifacts:', error);
-      return false;
     }
-  }
-
-  async shareFolderWithUsers(folderId: string, userEmails: string[]): Promise<string[]> {
-    const folder = this.folders.get(folderId);
-    if (!folder) return [];
-    
-    const sharedWith: string[] = [];
-    for (const email of userEmails) {
-      const user = await this.getUserByEmail(email);
-      if (user) {
-        // Create a folder reference for the recipient
-        const sharedFolder: FolderData = {
-          id: crypto.randomUUID(),
-          userId: user.id,
-          name: `Shared: ${folder.name}`,
-          parentId: null,
-          isShared: true,
-          sharedWith: [],
-          originalFolderId: folderId, // Reference to original
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        this.folders.set(sharedFolder.id, sharedFolder);
-        sharedWith.push(user.id);
-      }
-    }
-    
-    folder.sharedWith = [...new Set([...folder.sharedWith, ...sharedWith])];
-    this.folders.set(folderId, folder);
-    await this.persist();
-    
-    return sharedWith;
+    return deleted;
   }
 
   // Project Operations
@@ -418,7 +291,7 @@ class DBService {
   }
 
   async getProjectsByUser(userId: string): Promise<ProjectData[]> {
-    return Array.from(this.projects.values()).filter(project => project.userId === userId);
+    return Array.from(this.projects.values()).filter(p => p.userId === userId);
   }
 
   async updateProject(id: string, updates: Partial<ProjectData>): Promise<ProjectData | null> {
@@ -431,186 +304,62 @@ class DBService {
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    // Consider deleting artifacts/folders within the project or reassigning them
-    const result = this.projects.delete(id);
-    await this.persist();
-    return result;
+    const deleted = this.projects.delete(id);
+    if (deleted) {
+      await this.persist();
+    }
+    return deleted;
   }
 
   // Persistence
-  private async persist(): Promise<void> {
+  private async persist() {
     try {
-      localStorage.setItem('users', JSON.stringify(Array.from(this.users.entries())));
-      localStorage.setItem('prompts', JSON.stringify(Array.from(this.prompts.entries())));
-      // Persist new entities
-      localStorage.setItem('artifacts', JSON.stringify(Array.from(this.artifacts.entries())));
-      localStorage.setItem('folders', JSON.stringify(Array.from(this.folders.entries())));
-      localStorage.setItem('projects', JSON.stringify(Array.from(this.projects.entries())));
+      localStorage.setItem('db_users', JSON.stringify(Array.from(this.users.entries())));
+      localStorage.setItem('db_prompts', JSON.stringify(Array.from(this.prompts.entries())));
+      localStorage.setItem('db_artifacts', JSON.stringify(Array.from(this.artifacts.entries())));
+      localStorage.setItem('db_folders', JSON.stringify(Array.from(this.folders.entries())));
+      localStorage.setItem('db_projects', JSON.stringify(Array.from(this.projects.entries())));
     } catch (error) {
       console.error('Error persisting data:', error);
     }
   }
 
-  async load(): Promise<void> {
+  private async load() {
     try {
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const prompts = JSON.parse(localStorage.getItem('prompts') || '[]');
-      // Load new entities
-      const artifacts = JSON.parse(localStorage.getItem('artifacts') || '[]');
-      const folders = JSON.parse(localStorage.getItem('folders') || '[]');
-      const projects = JSON.parse(localStorage.getItem('projects') || '[]');
+      const usersData = localStorage.getItem('db_users');
+      if (usersData) {
+        this.users = new Map(JSON.parse(usersData));
+      }
 
-      this.users = new Map(users);
-      this.prompts = new Map(prompts);
-      // Initialize maps for new entities
-      this.artifacts = new Map(artifacts);
-      this.folders = new Map(folders);
-      this.projects = new Map(projects);
+      const promptsData = localStorage.getItem('db_prompts');
+      if (promptsData) {
+        this.prompts = new Map(JSON.parse(promptsData));
+      }
+
+      const artifactsData = localStorage.getItem('db_artifacts');
+      if (artifactsData) {
+        this.artifacts = new Map(JSON.parse(artifactsData));
+      }
+
+      const foldersData = localStorage.getItem('db_folders');
+      if (foldersData) {
+        this.folders = new Map(JSON.parse(foldersData));
+      }
+
+      const projectsData = localStorage.getItem('db_projects');
+      if (projectsData) {
+        this.projects = new Map(JSON.parse(projectsData));
+      }
     } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  }
-
-  // Add these methods to your dbService
-  async getFoldersByParent(userId: string, parentFolderId?: string): Promise<FolderData[]> {
-    // Implementation to fetch folders with the given parentFolderId
-    return Array.from(this.folders.values()).filter(folder => folder.userId === userId && folder.parentId === parentFolderId);
-  }
-
-  async createFolder(folderData: Partial<FolderData>): Promise<FolderData> {
-    // Implementation to create a new folder
-    const folder: FolderData = {
-      ...folderData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    this.folders.set(folder.id, folder);
-    await this.persist();
-    return folder;
-  }
-
-  async shareFolderByEmail(folderId: string, email: string): Promise<void> {
-    // Implementation to share a folder with a user by email
-    const folder = this.folders.get(folderId);
-    if (!folder) return;
-    
-    const user = await this.getUserByEmail(email);
-    if (!user) return;
-    
-    folder.isShared = true;
-    folder.sharedWith = [...new Set([...folder.sharedWith, user.id])];
-    folder.updatedAt = new Date().toISOString();
-    this.folders.set(folderId, folder);
-    await this.persist();
-  }
-
-  // Add this method to the dbService object
-  async getUserStatistics(userId: string) {
-    try {
-      const artifacts = await dbInstance.artifacts
-        .where('userId')
-        .equals(userId)
-        .toArray();
-      
-      const folders = await dbInstance.folders
-        .where('userId')
-        .equals(userId)
-        .toArray();
-      
-      const user = await dbInstance.users
-        .where('id')
-        .equals(userId)
-        .first();
-      
-      // Calculate statistics
-      const artifactCount = artifacts.length;
-      const folderCount = folders.length;
-      
-      // Calculate size statistics
-      const totalArtifactSize = artifacts.reduce((total, artifact) => {
-        const contentSize = artifact.content 
-          ? new Blob([typeof artifact.content === 'string' 
-            ? artifact.content 
-            : JSON.stringify(artifact.content)]).size 
-          : 0;
-        return total + contentSize;
-      }, 0);
-      
-      const averageArtifactSize = artifactCount > 0 
-        ? totalArtifactSize / artifactCount 
-        : 0;
-      
-      // Calculate language distribution
-      const languageDistribution: Record<string, number> = {};
-      artifacts.forEach(artifact => {
-        const language = artifact.language || 'unknown';
-        languageDistribution[language] = (languageDistribution[language] || 0) + 1;
-      });
-      
-      // Calculate folder distribution
-      const folderDistribution: Record<string, number> = {};
-      artifacts.forEach(artifact => {
-        const folderId = artifact.folderId || 'none';
-        folderDistribution[folderId] = (folderDistribution[folderId] || 0) + 1;
-      });
-      
-      // Calculate storage statistics
-      const storageLimit = 1024 * 1024 * 10; // 10MB limit for example
-      const storageUsed = totalArtifactSize;
-      const storageUsedPercent = (storageUsed / storageLimit) * 100;
-      
-      // Placeholder for activity data
-      const now = new Date();
-      const dailyActivity: Record<string, number> = {
-        [(now.getMonth() + 1) + '/' + (now.getDate() - 2)]: 3,
-        [(now.getMonth() + 1) + '/' + (now.getDate() - 1)]: 7,
-        [(now.getMonth() + 1) + '/' + now.getDate()]: 5,
-      };
-      
-      const weeklyActivity: Record<string, number> = {
-        'Week 1': 12,
-        'Week 2': 19,
-        'Week 3': 8,
-        'Week 4': 15,
-      };
-      
-      const monthlyActivity: Record<string, number> = {
-        'Jan': 45,
-        'Feb': 32,
-        'Mar': 67,
-        'Apr': 24,
-      };
-      
-      return {
-        userId,
-        artifactCount,
-        folderCount,
-        languageDistribution,
-        folderDistribution,
-        totalArtifactSize,
-        averageArtifactSize,
-        storageUsed,
-        storageLimit,
-        storageUsedPercent,
-        dailyActivity,
-        weeklyActivity,
-        monthlyActivity,
-        lastActivity: user?.lastLoginAt || now.toISOString(),
-        createdAt: user?.createdAt || now.toISOString(),
-        updatedAt: now.toISOString(),
-      };
-    } catch (error) {
-      console.error("Error fetching user statistics:", error);
-      throw new Error("Failed to get user statistics");
+      console.error("Failed to load data from localStorage", error);
+      // Initialize with empty maps if loading fails
+      this.users = new Map();
+      this.prompts = new Map();
+      this.artifacts = new Map();
+      this.folders = new Map();
+      this.projects = new Map();
     }
   }
 }
 
-export const dbService = {
-  createArtifact: async (data: Omit<ArtifactData, 'id'>) => {
-    // Implementation...
-    return { id: crypto.randomUUID(), ...data } as ArtifactData;
-  }
-  // ...other db methods...
-};
+export const dbService = new DBService();

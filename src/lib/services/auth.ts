@@ -83,6 +83,41 @@ class AuthService {
      }
    }
 
+  async loginWithGoogle(): Promise<void> {
+    console.log('loginWithGoogle called. This would typically trigger a Google login flow.');
+    // This is a mock implementation.
+    // In a real app, you would use Firebase Auth, Auth0, or similar to handle the OAuth flow.
+    // After successful Google login, you'd get user info and create/get a user from your DB.
+    const mockGoogleUser: UserData = {
+      id: 'google-user-123',
+      email: 'user@google.com',
+      username: 'Google User',
+      role: 'user',
+      avatarSeed: 'google-seed',
+      // Fill in other UserData fields as needed
+      skills: [],
+      interests: [],
+      preferredLLMs: [],
+      promptEngineering: { totalPrompts: 0, successfulPrompts: 0, challengesWon: 0, reputation: 0 },
+      contributions: { totalContributions: 0, artifacts: 0, codeReviews: 0, documentation: 0, promptEngineering: 0 },
+      knowledgeGraph: { nodes: [], edges: [] },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Check if user exists, if not create them
+    let user = await dbService.getUserByEmail(mockGoogleUser.email);
+    if (!user) {
+      user = await dbService.createUser(mockGoogleUser);
+    }
+
+    this.updateAuthState({
+      isAuthenticated: true,
+      user: user,
+      isGuest: false,
+    });
+  }
+
   async login(email: string, password: string): Promise<AuthState> {
     try {
       // Hardcoded admin credentials

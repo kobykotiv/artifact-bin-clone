@@ -68,7 +68,7 @@ import { PixelAvatar } from '../PixelAvatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PromptGenerator, type PromptType } from '@/components/PromptGenerator'; // Assuming PromptGenerator is a component
 import { PseudocodeGenerator } from '@/lib/templates/PseudocodeGenerator'; // Assuming PseudocodeGenerator is a component
-import { useAuth } from '@/lib/auth'; // Fixed import path
+import { useAuthContext } from '@/lib/context/AuthContext';
 import type { TemplateVariables } from '@/lib/promptTemplates';
 
 // --- Dashboard Pseudocode Scaffold ---
@@ -118,7 +118,7 @@ export function DashboardLayout() {
     deleteFolder,
   } = useDashboard();
 
-  const { authState } = useAuth();
+  const { authState } = useAuthContext();
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');

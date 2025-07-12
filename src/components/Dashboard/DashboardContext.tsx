@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { dbService, type ArtifactData, type FolderData } from '@/lib/services/db';
-import { authService, type AuthState } from '@/lib/services/auth';
+import { type UserData } from '@/lib/models/User';
 import { toast } from 'sonner';
 import { getFileTypeFromLanguage } from '@/lib/utils/fileTypes';
 import { type LayoutState } from './types';
@@ -27,18 +27,18 @@ interface DashboardContextType {
   deleteFolder: (id: string) => Promise<void>;
   layout: LayoutState;
   setLayout: (state: Partial<LayoutState>) => void;
+  user: UserData; // Add user to context
 }
 
 const DashboardContext = createContext<DashboardContextType | null>(null);
 
-export function DashboardProvider({ children }: { children: React.ReactNode }) {
+export function DashboardProvider({ children, user }: { children: React.ReactNode, user: UserData }) {
   const [artifacts, setArtifacts] = useState<ArtifactData[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("artifacts");
-  const [authState, setAuthState] = useState(authService.getAuthState());
   const [folders, setFolders] = useState<FolderData[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [layout, setLayoutState] = useState<LayoutState>({
@@ -60,27 +60,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setLayoutState(prev => ({ ...prev, ...newState }));
   }, []);
 
-  // Fetch artifacts when auth state changes
-  useEffect(() => {
-    const unsubscribe = authService.subscribe(setAuthState);
-    return unsubscribe;
-  }, []);
-
   // Load artifacts and folders when user changes
   useEffect(() => {
-    if (authState.isAuthenticated && authState.user) {
+    if (user) {
       fetchArtifacts();
       fetchFolders();
     }
-  }, [authState.user?.id]);
+  }, [user]);
 
   // Fetch user artifacts
   const fetchArtifacts = useCallback(async () => {
-    if (!authState.user?.id) return;
+    if (!user?.id) return;
     
     setLoading(true);
     try {
-      const userArtifacts = await dbService.getArtifactsByUser(authState.user.id);
+      const userArtifacts = await dbService.getArtifactsByUser(user.id);
       setArtifacts(userArtifacts);
     } catch (error) {
       console.error("Failed to fetch artifacts:", error);
@@ -88,35 +82,34 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [authState.user?.id]);
+  }, [user?.id]);
 
   // Fetch user folders
   const fetchFolders = useCallback(async () => {
-    if (!authState.user?.id) return;
+    if (!user?.id) return;
     
     try {
-      const userFolders = await dbService.getFoldersByUser(authState.user.id);
+      const userFolders = await dbService.getFoldersByUser(user.id);
       setFolders(userFolders);
     } catch (error) {
       console.error("Failed to fetch folders:", error);
       toast.error("Failed to load folders");
     }
-  }, [authState.user?.id]);
+  }, [user?.id]);
 
-  // Update current artifact when selection changes
+  // Fetch selected artifact details
   useEffect(() => {
-    if (selectedArtifactId) {
-      const artifact = artifacts.find(a => a.id === selectedArtifactId);
-      setCurrentArtifact(artifact || null);
-      
-      // Determine correct tab based on artifact type
-      if (artifact) {
-        determineActiveTab(artifact);
+    const fetchSelectedArtifact = async () => {
+      if (selectedArtifactId) {
+        const artifact = await dbService.getArtifact(selectedArtifactId);
+        setCurrentArtifact(artifact);
+        setIsEditing(false); // Reset editing state on new selection
+      } else {
+        setCurrentArtifact(null);
       }
-    } else {
-      setCurrentArtifact(null);
-    }
-  }, [selectedArtifactId, artifacts]);
+    };
+    fetchSelectedArtifact();
+  }, [selectedArtifactId]);
 
   // Determine the appropriate tab for an artifact
   const determineActiveTab = (artifact: ArtifactData) => {
@@ -141,75 +134,43 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Create new artifact
   const createArtifact = useCallback(async (type: string, template?: any) => {
-    if (!authState.user?.id) {
-      toast.error("You need to be logged in to create artifacts");
+    if (!user) {
+      toast.error("You must be logged in to create an artifact.");
       return;
     }
+    
+    const newArtifactData: Partial<ArtifactData> = {
+      userId: user.id,
+      type: type,
+      title: template?.title || `New ${type}`,
+      content: template?.content || '',
+      language: template?.language || (type === 'code' ? 'javascript' : 'text'),
+      fileType: getFileTypeFromLanguage(template?.language || (type === 'code' ? 'javascript' : 'text')),
+      ...template?.metadata
+    };
 
     try {
-      let newArtifact: Partial<ArtifactData>;
-      
-      // Handle special case for startup organization
-      if (type === 'organization') {
-        newArtifact = {
-          userId: authState.user.id,
-          title: `${template?.companyName || 'New'} Organization Structure`,
-          language: 'project-spec',
-          fileType: 'json',
-          content: JSON.stringify({
-            type: 'startup-organization',
-            ...template
-          }, null, 2),
-          tags: ['organization', 'structure', template?.orgStructure],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          avatarSeed: crypto.randomUUID()
-        };
-      } else {
-        // Existing code for other artifact types
-        newArtifact = {
-          userId: authState.user.id,
-          title: `New ${type}`,
-          language: type === 'code' ? 'javascript' : 'project-spec',
-          fileType: type === 'code' ? 'js' : 'json',
-          content: type === 'code' ? template || '' : JSON.stringify(template || {}, null, 2),
-          tags: [type],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          avatarSeed: crypto.randomUUID()
-        };
-      }
-
-      const created = await dbService.createArtifact(newArtifact);
-      setArtifacts(prev => [created, ...prev]);
-      setSelectedArtifactId(created.id);
-      toast.success(`Created new ${type}`);
-      return created;
+      const newArtifact = await dbService.createArtifact(newArtifactData);
+      setArtifacts(prev => [newArtifact, ...prev]);
+      setSelectedArtifactId(newArtifact.id);
+      setIsEditing(true);
+      toast.success("New artifact created!");
     } catch (error) {
       console.error("Failed to create artifact:", error);
       toast.error("Failed to create artifact");
     }
-  }, [authState.user?.id]);
+  }, [user]);
 
   // Save artifact changes
-  const saveArtifact = useCallback(async (updatedArtifact: ArtifactData) => {
+  const saveArtifact = useCallback(async (artifact: ArtifactData) => {
     try {
-      // Ensure fileType matches language
-      if (updatedArtifact.language !== 'project-spec') {
-        updatedArtifact.fileType = getFileTypeFromLanguage(updatedArtifact.language);
-      } else {
-        updatedArtifact.fileType = 'json';
+      const updatedArtifact = await dbService.updateArtifact(artifact.id, artifact);
+      if (updatedArtifact) {
+        setArtifacts(prev => prev.map(a => a.id === artifact.id ? updatedArtifact : a));
+        setCurrentArtifact(updatedArtifact);
+        setIsEditing(false);
+        toast.success("Artifact saved!");
       }
-      
-      const saved = await dbService.saveArtifact(updatedArtifact);
-      
-      // Update artifacts list
-      setArtifacts(prev => 
-        prev.map(a => a.id === saved.id ? saved : a)
-      );
-      
-      toast.success("Artifact saved successfully");
-      setIsEditing(false);
     } catch (error) {
       console.error("Failed to save artifact:", error);
       toast.error("Failed to save artifact");
@@ -221,12 +182,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     try {
       await dbService.deleteArtifact(id);
       setArtifacts(prev => prev.filter(a => a.id !== id));
-      
       if (selectedArtifactId === id) {
         setSelectedArtifactId(null);
       }
-      
-      toast.success("Artifact deleted");
+      toast.success("Artifact deleted!");
     } catch (error) {
       console.error("Failed to delete artifact:", error);
       toast.error("Failed to delete artifact");
@@ -235,101 +194,61 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Fork an artifact
   const forkArtifact = useCallback(async (artifact: ArtifactData) => {
-    if (!authState.user?.id) return;
+    if (!user) {
+      toast.error("You must be logged in to fork an artifact.");
+      return;
+    }
     
+    const forkData: Partial<ArtifactData> = {
+      ...artifact,
+      userId: user.id,
+      title: `${artifact.title} (forked)`,
+      metadata: { ...artifact.metadata, forkedFrom: artifact.id }
+    };
+    delete forkData.id; // Remove id to create a new one
+
     try {
-      const fork: Partial<ArtifactData> = {
-        userId: authState.user.id,
-        title: `Fork of ${artifact.title}`,
-        language: artifact.language,
-        fileType: artifact.fileType,
-        content: artifact.content,
-        tags: [...artifact.tags, 'fork'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        avatarSeed: crypto.randomUUID()
-      };
-      
-      const created = await dbService.createArtifact(fork);
-      setArtifacts(prev => [created, ...prev]);
-      setSelectedArtifactId(created.id);
-      toast.success("Created fork successfully");
+      const forkedArtifact = await dbService.createArtifact(forkData);
+      setArtifacts(prev => [forkedArtifact, ...prev]);
+      setSelectedArtifactId(forkedArtifact.id);
+      toast.success("Artifact forked successfully!");
     } catch (error) {
       console.error("Failed to fork artifact:", error);
       toast.error("Failed to fork artifact");
     }
-  }, [authState.user?.id]);
+  }, [user]);
 
   // Create new folder
   const createFolder = useCallback(async (name: string, parentId?: string) => {
-    if (!authState.user?.id) return;
-    
+    if (!user) return;
     try {
-      const newFolder = await dbService.createFolder({
-        userId: authState.user.id,
-        name,
-        parentId,
-        isShared: false,
-        sharedWith: [],
-      });
-      
+      const newFolder = await dbService.createFolder({ name, parentId, userId: user.id });
       setFolders(prev => [...prev, newFolder]);
-      toast.success("Folder created");
+      toast.success("Folder created!");
     } catch (error) {
       console.error("Failed to create folder:", error);
       toast.error("Failed to create folder");
     }
-  }, [authState.user?.id]);
+  }, [user]);
 
-  // Share folder
   const shareFolder = useCallback(async (folderId: string, emails: string[]) => {
-    try {
-      // This would need to look up users by email first
-      // Simplified version:
-      const userIds = await Promise.all(emails.map(email => 
-        dbService.getUserByEmail(email).then(user => user?.id || '')
-      ));
-      const validUserIds = userIds.filter(Boolean);
-      
-      if (validUserIds.length === 0) {
-        toast.error("No valid users found");
-        return;
-      }
-      
-      const updatedFolder = await dbService.shareFolder(folderId, validUserIds);
-      if (updatedFolder) {
-        setFolders(prev => prev.map(f => f.id === folderId ? updatedFolder : f));
-        toast.success(`Folder shared with ${validUserIds.length} users`);
-      }
-    } catch (error) {
-      console.error("Failed to share folder:", error);
-      toast.error("Failed to share folder");
-    }
+    // This is a placeholder for a real sharing implementation
+    console.log(`Sharing folder ${folderId} with ${emails.join(', ')}`);
+    toast.info("Sharing functionality not yet implemented.");
   }, []);
 
-  // Delete folder
   const deleteFolder = useCallback(async (id: string) => {
     try {
-      const success = await dbService.deleteFolder(id);
-      if (success) {
-        setFolders(prev => prev.filter(f => f.id !== id));
-        
-        // Move artifacts from this folder back to unfiled
-        setArtifacts(prev => prev.map(a => 
-          a.folderId === id ? {...a, folderId: undefined} : a
-        ));
-        
-        if (selectedFolderId === id) {
-          setSelectedFolderId(null);
-        }
-        
-        toast.success("Folder deleted");
-      }
+      await dbService.deleteFolder(id);
+      setFolders(prev => prev.filter(f => f.id !== id));
+      // Also refetch artifacts as some may have been moved out of the deleted folder
+      fetchArtifacts();
+      toast.success("Folder deleted!");
     } catch (error) {
       console.error("Failed to delete folder:", error);
       toast.error("Failed to delete folder");
     }
-  }, [selectedFolderId]);
+  }, [fetchArtifacts]);
 
   const value = {
     artifacts,
@@ -352,7 +271,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     shareFolder,
     deleteFolder,
     layout,
-    setLayout
+    setLayout,
+    user, // Provide user in context
   };
 
   return (
@@ -362,8 +282,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useDashboard = () => {
+export function useDashboard() {
   const context = useContext(DashboardContext);
-  if (!context) throw new Error('useDashboard must be used within a DashboardProvider');
+  if (!context) {
+    throw new Error('useDashboard must be used within a DashboardProvider');
+  }
   return context;
-};
+}
