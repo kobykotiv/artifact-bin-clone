@@ -42,6 +42,17 @@ class VersioningService {
     return versions.find(v => v.id === versionId) || null;
   }
 
+  async updateCommitMessage(artifactId: string, versionId: string, newMessage: string): Promise<boolean> {
+    const versions = this.versions.get(artifactId) || [];
+    const version = versions.find(v => v.id === versionId);
+    if (version) {
+      version.commitMessage = newMessage;
+      await this.persist();
+      return true;
+    }
+    return false;
+  }
+
   private async persist() {
     localStorage.setItem('db_versions', JSON.stringify(Array.from(this.versions.entries())));
   }

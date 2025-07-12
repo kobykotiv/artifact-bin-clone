@@ -1,0 +1,74 @@
+/* ...existing code... */
+
+.document-preview {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: var(--foreground);
+}
+
+.fullscreen-document {
+  background: var(--background);
+  color: var(--foreground);
+  border: none;
+}
+
+.document-sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.version-history-neobrutalist {
+  background: var(--muted);
+  border: 3px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 6px 6px 0 var(--border), 0 0 0 2px var(--muted) inset;
+  color: var(--foreground);
+}
+
+.version-history-neobrutalist h3 {
+  color: var(--foreground);
+  border-bottom: 2px solid var(--border);
+}
+
+.version-history-neobrutalist .neobrutalist-version-btn {
+  border: 2px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+.version-history-neobrutalist .neobrutalist-version-btn.bg-muted {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.version-history-neobrutalist .neobrutalist-version-btn:hover {
+  background: var(--accent);
+  box-shadow: 4px 4px 0 var(--border);
+}
+
+.version-history-neobrutalist .neobrutalist-diff-dialog {
+  border: 3px solid var(--border);
+  background: var(--muted);
+  border-radius: 0.5rem;
+  box-shadow: 8px 8px 0 var(--border);
+  color: var(--foreground);
+}
+
+.version-history-neobrutalist .neobrutalist-diff-header {
+  border-bottom: 2px solid var(--border);
+  color: var(--foreground);
+}
+
+.version-history-neobrutalist .neobrutalist-diff-controls button {
+  border: 2px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+.version-history-neobrutalist .neobrutalist-diff-controls button.active,
+.version-history-neobrutalist .neobrutalist-diff-controls button:focus {
+  background: var(--accent);
+}
+
+/* ...existing code... */

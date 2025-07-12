@@ -94,11 +94,11 @@ export function TemplateModal({ isOpen, onClose, onSelect }: TemplateModalProps)
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+    <div className="fixed inset-0" style={{ background: 'var(--background, #fff)', color: 'var(--foreground, #222)', backdropFilter: 'blur(6px)', zIndex: 50 }}>
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="bg-background border rounded-lg shadow-lg w-full max-w-4xl flex flex-col h-[90vh]">
+        <div style={{ background: 'var(--background, #fff)', border: '1.5px solid var(--border, #222)', color: 'var(--foreground, #222)' }} className="rounded-lg shadow-lg w-full max-w-4xl flex flex-col h-[90vh]">
           {/* Header */}
-          <div className="p-4 border-b flex justify-between items-center shrink-0">
+          <div className="p-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'var(--border, #222)' }}>
             <h2 className="text-xl font-semibold">Create New Artifact</h2>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
@@ -106,7 +106,7 @@ export function TemplateModal({ isOpen, onClose, onSelect }: TemplateModalProps)
           </div>
 
           {/* Search */}
-          <div className="p-4 border-b shrink-0">
+          <div className="p-4 border-b shrink-0" style={{ borderColor: 'var(--border, #222)' }}>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -172,7 +172,7 @@ export function TemplateModal({ isOpen, onClose, onSelect }: TemplateModalProps)
           </ScrollArea>
 
           {/* Footer */}
-          <div className="p-4 border-t shrink-0 flex justify-between">
+          <div className="p-4 border-t shrink-0 flex justify-between" style={{ borderColor: 'var(--border, #222)' }}>
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import DiffViewer from 'react-diff-viewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PixelatedAvatar from '@/components/PixelatedAvatar';
+import { Input } from '@/components/ui/input';
 
 interface VersionHistoryProps {
   artifactId: string | null;
@@ -24,6 +25,11 @@ export function VersionHistory({
   const [diffContent, setDiffContent] = useState<{ oldText: string; newText: string } | null>(null);
   const [diffMode, setDiffMode] = useState<'side-by-side' | 'inline'>('side-by-side');
   const [diffPair, setDiffPair] = useState<{ left: string; right: string } | null>(null);
+  const [editLabelOpen, setEditLabelOpen] = useState(false);
+  const [labelEditVersionId, setLabelEditVersionId] = useState<string | null>(null);
+  const [labelInput, setLabelInput] = useState('');
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
 
   useEffect(() => {
     if (artifactId) {
@@ -70,6 +76,40 @@ export function VersionHistory({
     }
   };
 
+  const handleEditLabel = (versionId: string, currentLabel: string) => {
+    setLabelEditVersionId(versionId);
+    setLabelInput(currentLabel || '');
+    setEditLabelOpen(true);
+  };
+
+  const handleSaveLabel = async () => {
+    if (!artifactId || !labelEditVersionId) return;
+    await versioningService.updateCommitMessage(artifactId, labelEditVersionId, labelInput);
+    setVersions(versions => versions.map(v => v.id === labelEditVersionId ? { ...v, commitMessage: labelInput } : v));
+    setEditLabelOpen(false);
+    setLabelEditVersionId(null);
+    setLabelInput('');
+    toast.success('Commit message updated!');
+  };
+
+  const handleCompareSelect = (versionId: string) => {
+    if (compareSelection.includes(versionId)) {
+      setCompareSelection(compareSelection.filter(id => id !== versionId));
+    } else if (compareSelection.length < 2) {
+      setCompareSelection([...compareSelection, versionId]);
+    } else {
+      setCompareSelection([compareSelection[1], versionId]);
+    }
+  };
+
+  const handleCompareDiff = () => {
+    if (compareSelection.length === 2) {
+      handleViewDiff(compareSelection[0], compareSelection[1]);
+      setCompareMode(false);
+      setCompareSelection([]);
+    }
+  };
+
   if (!artifactId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -96,17 +136,38 @@ export function VersionHistory({
     <div className="version-history-neobrutalist p-2 h-full flex flex-col">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-2 w-full">
         <h3 className="font-medium">Version History</h3>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRevert}
-          disabled={!selectedVersionId || selectedVersionId === versions[0]?.id}
-          className="neobrutalist-version-btn"
-        >
-          <RefreshCw className="h-3.5 w-3.5 mr-2" />
-          Revert to Selected
-        </Button>
+        <div className="flex gap-2 items-center">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRevert}
+            disabled={!selectedVersionId || selectedVersionId === versions[0]?.id}
+            className="neobrutalist-version-btn"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-2" />
+            Revert to Selected
+          </Button>
+          <Button
+            variant={compareMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setCompareMode(!compareMode);
+              setCompareSelection([]);
+            }}
+            className="neobrutalist-version-btn"
+          >
+            {compareMode ? 'Cancel Compare' : 'Compare Versions'}
+          </Button>
+        </div>
       </div>
+      {compareMode && (
+        <div className="mb-2 text-xs text-muted-foreground flex items-center gap-2">
+          <span>Select any two versions to compare.</span>
+          <Button size="sm" disabled={compareSelection.length !== 2} onClick={handleCompareDiff}>
+            Compare Selected
+          </Button>
+        </div>
+      )}
       <ScrollArea className="flex-grow min-h-0 w-full">
         <div className="space-y-1.5">
           {versions.map((version, index) => (
@@ -115,9 +176,16 @@ export function VersionHistory({
                 variant="ghost"
                 className={cn(
                   "neobrutalist-version-btn w-full justify-start text-left h-auto py-2",
-                  selectedVersionId === version.id && "bg-muted"
+                  selectedVersionId === version.id && "bg-muted",
+                  compareMode && compareSelection.includes(version.id) && 'ring-2 ring-blue-500'
                 )}
-                onClick={() => setSelectedVersionId(version.id)}
+                onClick={() => {
+                  if (compareMode) {
+                    handleCompareSelect(version.id);
+                  } else {
+                    setSelectedVersionId(version.id);
+                  }
+                }}
               >
                 <div className="flex items-start">
                   <div className="flex-shrink-0 mr-2 mt-0.5">
@@ -128,9 +196,22 @@ export function VersionHistory({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <p className="font-medium text-sm leading-tight">
-                      {version.commitMessage || `Update at ${new Date(version.createdAt).toLocaleTimeString()}`}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm leading-tight">
+                        {version.commitMessage || `Update at ${new Date(version.createdAt).toLocaleTimeString()}`}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-1 px-1 py-0.5 h-5 text-xs"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleEditLabel(version.id, version.commitMessage || '');
+                        }}
+                      >
+                        {version.commitMessage ? 'Edit' : 'Add'}
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground leading-tight">
                       {new Date(version.createdAt).toLocaleString()}
                     </p>
@@ -138,7 +219,7 @@ export function VersionHistory({
                   </div>
                 </div>
               </Button>
-              {index !== 0 && (
+              {!compareMode && index !== 0 && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -152,6 +233,26 @@ export function VersionHistory({
           ))}
         </div>
       </ScrollArea>
+      {/* Edit Label Dialog */}
+      <Dialog open={editLabelOpen} onOpenChange={setEditLabelOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{labelEditVersionId ? 'Edit Commit Message' : 'Add Commit Message'}</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={labelInput}
+            onChange={e => setLabelInput(e.target.value)}
+            placeholder="Enter commit message..."
+            className="mb-2"
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditLabelOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveLabel} disabled={!labelInput.trim()}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Diff Dialog */}
       <Dialog open={showDiff} onOpenChange={setShowDiff}>
         <DialogContent className="neobrutalist-diff-dialog max-w-3xl">
           <DialogHeader className="neobrutalist-diff-header">

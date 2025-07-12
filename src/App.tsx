@@ -4,6 +4,7 @@ import { AuthProvider, useAuthContext } from '@/lib/context/AuthContext';
 import { authService } from "@/lib/services/auth";
 import Dashboard from "@/components/Dashboard";
 import { LogIn, Lightbulb } from 'lucide-react';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
 
 function AppContent() {
   const { authState, loginAsGuest } = useAuthContext();
@@ -44,6 +45,7 @@ export function App() {
     <AuthProvider>
       <AppContent />
       <Toaster />
+      <ThemeSwitcher />
     </AuthProvider>
   );
 }
