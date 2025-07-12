@@ -6,12 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { type IUser, type UserData, createUser, getUser, getUserByEmail } from "@/lib/db";
+import { type IUser, type UserData, createUser, getUser, getUserByEmail, getAllArtifacts } from "@/lib/db";
 import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
 import { KnowledgeGraph } from "@/components/KnowledgeGraph";
 import { SkillMatching } from "@/components/SkillMatching";
 import { authService } from "@/lib/services/auth";
 import { getRandomItem } from '@/lib/utils';
+import React from 'react';
+import { UserAvatar } from './UserAvatar';
+import { ArtifactList } from "@/components/ArtifactList";
+import { dbService } from "@/lib/db";
 
 interface UserProfileProps {
   userId?: string;
@@ -50,6 +54,8 @@ export function UserProfile({ userId, onUserChange, isGuest }: UserProfileProps)
   });
   const [newSkill, setNewSkill] = useState("");
   const [newInterest, setNewInterest] = useState("");
+  const [userArtifacts, setUserArtifacts] = useState<any[]>([]);
+  const [loadingArtifacts, setLoadingArtifacts] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -96,6 +102,25 @@ export function UserProfile({ userId, onUserChange, isGuest }: UserProfileProps)
     };
     loadUser();
   }, [userId, isGuest]);
+
+  useEffect(() => {
+    // Fetch user artifacts (local IndexedDB: fallback to all artifacts, no user filtering if userId not present)
+    if (!isGuest) {
+      setLoadingArtifacts(true);
+      getAllArtifacts()
+        .then((all) => {
+          // Only filter if userId is present on artifact (for local IndexedDB, may not be)
+          let filtered = all;
+          if ((userId || user?.id) && all.length > 0 && Object.prototype.hasOwnProperty.call(all[0], 'userId')) {
+            const id = userId || user?.id;
+            filtered = all.filter(a => a.userId === id);
+          }
+          setUserArtifacts(filtered);
+        })
+        .catch(() => setUserArtifacts([]))
+        .finally(() => setLoadingArtifacts(false));
+    }
+  }, [userId, isGuest, user]);
 
   const handleCreateOrUpdateUser = async () => {
     if (isGuest) {
@@ -491,6 +516,19 @@ export function UserProfile({ userId, onUserChange, isGuest }: UserProfileProps)
           </Card>
         </>
       )}
+
+      <Card className="p-6">
+        <div>
+          <h4 className="font-semibold mb-2">Artifacts</h4>
+          {loadingArtifacts ? (
+            <div className="text-muted-foreground">Loading artifacts...</div>
+          ) : userArtifacts.length === 0 ? (
+            <div className="text-muted-foreground">No artifacts yet.</div>
+          ) : (
+            <ArtifactList artifacts={userArtifacts} selectedId={null} displayMode="grid" onSelect={() => {}} />
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
