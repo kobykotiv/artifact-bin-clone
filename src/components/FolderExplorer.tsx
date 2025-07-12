@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from './ui/input';
 import { toast } from 'sonner';
+import { subscribeToNotifications } from '@/lib/notifications';
+import { exportToMarkdown } from '@/lib/utils/export';
 
 type Tag = string;
 
@@ -58,6 +60,41 @@ export function FolderExplorer({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [filterType, setFilterType] = useState<'all' | 'folder' | 'artifact'>('all');
   const [tagFilter, setTagFilter] = useState<Tag | null>(null);
+  // Add favorites state
+  const [favorites, setFavorites] = useState<{[id: string]: boolean}>({});
+  const toggleFavorite = (id: string) => setFavorites(prev => ({...prev, [id]: !prev[id]}));
+
+  // Preview state (scaffold)
+  const [previewItem, setPreviewItem] = useState<{id: string, type: 'folder'|'artifact'}|null>(null);
+
+  // Version history modal state (scaffold)
+  const [showVersionHistory, setShowVersionHistory] = useState<{id: string, type: 'artifact'}|null>(null);
+
+  // Customizable folder icon/color state (scaffold)
+  const [folderIcons, setFolderIcons] = useState<{[id: string]: string}>({});
+  const [folderColors, setFolderColors] = useState<{[id: string]: string}>({});
+
+  const handleSetFolderIcon = (folderId: string, icon: string) => {
+    setFolderIcons(prev => ({...prev, [folderId]: icon}));
+    toast.success('Folder icon updated (Not yet implemented)');
+  };
+  const handleSetFolderColor = (folderId: string, color: string) => {
+    setFolderColors(prev => ({...prev, [folderId]: color}));
+    toast.success('Folder color updated (Not yet implemented)');
+  };
+
+  // Offline mode state (scaffold)
+  const [isOffline, setIsOffline] = useState(false);
+  React.useEffect(() => {
+    const updateOnlineStatus = () => setIsOffline(!navigator.onLine);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
 
   const handleMouseEnter = () => {
     setIsCollapsed(false);
@@ -77,6 +114,31 @@ export function FolderExplorer({
     };
     fetchData();
   }, [userId]);
+
+  // Notifications: subscribe on mount
+  React.useEffect(() => {
+    const handleNotif = (notif: any) => {
+      toast.info(notif.message || 'You have a new notification');
+    };
+    subscribeToNotifications(userId, handleNotif);
+    // No unsubscribe in stub
+  }, [userId]);
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'n') {
+        handleCreateFolder();
+      } else if (e.ctrlKey && e.key === 'r') {
+        if (editingFolderId) handleRenameFolder(editingFolderId);
+      } else if (e.ctrlKey && e.key === 'd') {
+        const selected = Object.keys(selectedItems).filter(id => selectedItems[id]);
+        if (selected.length) selected.forEach(id => handleDeleteFolder(id));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editingFolderId, selectedItems]);
 
   // Helper: sort function for folders and artifacts
   const sortItems = <T extends { name?: string; title?: string; createdAt?: string }>(items: T[]): T[] => {
@@ -221,6 +283,42 @@ export function FolderExplorer({
     toast.success('Tag removed (Not yet implemented)');
   };
 
+  // Export functionality (scaffold)
+  const handleExport = async () => {
+    const selectedIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
+    const selectedArtifacts = artifacts.filter(a => selectedIds.includes(a.id));
+    if (selectedArtifacts.length) {
+      const md = await exportToMarkdown(selectedArtifacts);
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'artifacts.md';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exported selected artifacts!');
+    } else {
+      toast.error('No artifacts selected for export.');
+    }
+  };
+
+  // Import functionality (scaffold)
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const imported = JSON.parse(ev.target?.result as string);
+        // TODO: Validate and add to state/db
+        toast.success('Imported artifacts (Not yet implemented)');
+      } catch {
+        toast.error('Invalid import file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const renderFolder = (folder: FolderWithArtifacts) => (
     <div key={folder.id} className="select-none"
       draggable
@@ -228,13 +326,41 @@ export function FolderExplorer({
       onDragEnd={handleDragEnd}
       onDrop={e => { e.preventDefault(); handleDrop(folder.id, 'folder'); }}
       onDragOver={e => e.preventDefault()}
+      onMouseEnter={() => setPreviewItem({id: folder.id, type: 'folder'})}
+      onMouseLeave={() => setPreviewItem(null)}
     >
       <div className="flex items-center py-1 px-1.5 rounded hover:bg-muted/50 group">
-        <input type="checkbox" checked={!!selectedItems[folder.id]} onChange={() => toggleSelect(folder.id)} className="mr-1" />
+        {/* Folder icon and color customization */}
         <span className="mr-1 cursor-pointer" onClick={() => toggleFolder(folder.id)}>
           {expandedFolders[folder.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </span>
-        <FolderIcon className="h-4 w-4 mr-1.5 text-yellow-500" />
+        <span style={{ color: folderColors[folder.id] || '#facc15' }}>
+          {folderIcons[folder.id] ? (
+            <span className="mr-1.5">{folderIcons[folder.id]}</span>
+          ) : (
+            <FolderIcon className="h-4 w-4 mr-1.5" />
+          )}
+        </span>
+        {/* Icon/color picker (scaffold) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" title="Customize Folder">
+              🎨
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleSetFolderIcon(folder.id, '📁')}>📁 Default</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSetFolderIcon(folder.id, '🗂️')}>🗂️ Tabbed</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSetFolderIcon(folder.id, '📦')}>📦 Box</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSetFolderColor(folder.id, '#facc15')}>Yellow</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSetFolderColor(folder.id, '#60a5fa')}>Blue</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSetFolderColor(folder.id, '#34d399')}>Green</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* Favorite button */}
+        <button onClick={() => toggleFavorite(folder.id)} className="ml-1 text-yellow-400 hover:text-yellow-300" title="Favorite">
+          {favorites[folder.id] ? '★' : '☆'}
+        </button>
         {/* Customizable icon/color (scaffold) */}
         {editingFolderId === folder.id ? (
           <Input
@@ -275,8 +401,15 @@ export function FolderExplorer({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {/* Preview/metadata on hover (scaffold) */}
-      <div className="hidden group-hover:block text-xs text-muted-foreground pl-8">Created: {/* TODO: date */}</div>
+      {/* Preview/metadata on hover */}
+      {previewItem?.id === folder.id && previewItem.type === 'folder' && (
+        <div className="block text-xs text-muted-foreground pl-8 bg-gray-800 rounded p-2 mt-1">
+          <div>Folder: {folder.name}</div>
+          <div>Artifacts: {folder.artifacts.length}</div>
+          <div>Subfolders: {folder.children.length}</div>
+          {/* TODO: Add more metadata as needed */}
+        </div>
+      )}
       {expandedFolders[folder.id] && (
         <div className="pl-4">
           {folder.children.map(renderFolder)}
@@ -293,11 +426,19 @@ export function FolderExplorer({
       onDragEnd={handleDragEnd}
       onDrop={e => { e.preventDefault(); handleDrop(artifact.id, 'artifact'); }}
       onDragOver={e => e.preventDefault()}
+      onMouseEnter={() => setPreviewItem({id: artifact.id, type: 'artifact'})}
+      onMouseLeave={() => setPreviewItem(null)}
     >
       <input type="checkbox" checked={!!selectedItems[artifact.id]} onChange={() => toggleSelect(artifact.id)} className="mr-1" />
       <FileCode className="h-4 w-4 mr-1.5 text-amber-500" />
+      {/* Favorite button */}
+      <button onClick={() => toggleFavorite(artifact.id)} className="ml-1 text-yellow-400 hover:text-yellow-300" title="Favorite">
+        {favorites[artifact.id] ? '★' : '☆'}
+      </button>
       <span>{artifact.title}</span>
       <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleShare(artifact.id, 'artifact')} title="Share"><Share2 className="h-4 w-4" /></Button>
+      {/* Version history button */}
+      <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => setShowVersionHistory({id: artifact.id, type: 'artifact'})} title="Version History">⏳</Button>
       {/* Tagging, favorite, pin, preview, etc. (scaffold) */}
       <div className="ml-auto flex gap-1">
         {(artifact.tags || []).map(tag => (
@@ -375,6 +516,17 @@ export function FolderExplorer({
               <Button size="sm" onClick={clearSelection}>Clear</Button>
             </div>
           )}
+          {/* Export/Import buttons */}
+          {!isCollapsed && (
+            <div className="mb-2 flex gap-2">
+              <Button size="sm" onClick={handleExport}>Export</Button>
+              <label className="inline-block">
+                <span className="sr-only">Import</span>
+                <input type="file" accept="application/json" onChange={handleImport} className="hidden" />
+                <Button size="sm" asChild>Import</Button>
+              </label>
+            </div>
+          )}
           {!isCollapsed && (
             <div className="overflow-y-auto">
               {folderTree.map(renderFolder)}
@@ -394,6 +546,29 @@ export function FolderExplorer({
             <Button onClick={() => setShowShareModal(null)}>Close</Button>
           </div>
         </div>
+      )}
+      {/* Preview panel (scaffold) */}
+      {previewItem && (
+        <div className="fixed right-0 top-0 w-80 h-full bg-white text-black shadow-lg z-50 p-4">
+          <h3 className="font-bold mb-2">Preview {previewItem.type === 'folder' ? 'Folder' : 'Artifact'}</h3>
+          {/* TODO: Show preview details based on previewItem */}
+          <div>(Preview details not yet implemented)</div>
+          <Button onClick={() => setPreviewItem(null)} className="mt-2">Close</Button>
+        </div>
+      )}
+      {/* Version history modal (scaffold) */}
+      {showVersionHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white text-black rounded shadow-lg p-6 min-w-[320px]">
+            <h3 className="font-bold mb-2">Version History</h3>
+            <div className="mb-2">(Version history UI not yet implemented)</div>
+            <Button onClick={() => setShowVersionHistory(null)}>Close</Button>
+          </div>
+        </div>
+      )}
+      {/* Show offline banner if offline */}
+      {isOffline && (
+        <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-center py-1 z-50">Offline mode: changes will sync when back online.</div>
       )}
       {!isCollapsed && <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" />}
     </>

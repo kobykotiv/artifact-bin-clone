@@ -5,6 +5,16 @@ import { type ArtifactData } from "@/lib/models/Artifact";
 import { type FolderData } from "@/lib/models/Folder";
 import { type ProjectData } from "@/lib/models/Project";
 
+// --- FORK OPERATIONS ---
+interface ForkData {
+  id: string;
+  artifactId: string;
+  userId: string;
+  title: string;
+  isPublic: boolean;
+  createdAt: string;
+}
+
 // Simulated database with localStorage for persistence
 class DBService {
   private users: Map<string, UserData> = new Map();
@@ -14,6 +24,7 @@ class DBService {
   private folders: Map<string, FolderData> = new Map();
   private projects: Map<string, ProjectData> = new Map();
   private reviews: Map<string, ReviewData> = new Map();
+  private forks: Map<string, ForkData[]> = new Map(); // artifactId -> ForkData[]
 
   constructor() {
     this.load(); // Load data on initialization
@@ -320,6 +331,28 @@ class DBService {
     return deleted;
   }
 
+  // Fork Operations
+  async createFork(fork: Omit<ForkData, 'id' | 'createdAt'>): Promise<ForkData> {
+    const newFork: ForkData = {
+      ...fork,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    const arr = this.forks.get(fork.artifactId) || [];
+    arr.push(newFork);
+    this.forks.set(fork.artifactId, arr);
+    await this.persist();
+    return newFork;
+  }
+
+  async getForksByArtifact(artifactId: string): Promise<ForkData[]> {
+    return (this.forks.get(artifactId) || []);
+  }
+
+  async getPublicForksByArtifact(artifactId: string): Promise<ForkData[]> {
+    return (this.forks.get(artifactId) || []).filter(f => f.isPublic);
+  }
+
   // Persistence
   private async persist() {
     try {
@@ -330,6 +363,7 @@ class DBService {
         folders: Array.from(this.folders.entries()),
         projects: Array.from(this.projects.entries()),
         reviews: Array.from(this.reviews.entries()),
+        forks: Array.from(this.forks.entries()),
       };
       localStorage.setItem('db', JSON.stringify(data));
     } catch (error) {
@@ -348,6 +382,7 @@ class DBService {
         this.folders = new Map(parsedData.folders || []);
         this.projects = new Map(parsedData.projects || []);
         this.reviews = new Map(parsedData.reviews || []);
+        this.forks = new Map(parsedData.forks || []);
       }
     } catch (error) {
       console.error('Failed to load data from localStorage', error);
