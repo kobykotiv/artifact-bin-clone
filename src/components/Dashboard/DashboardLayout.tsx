@@ -64,8 +64,37 @@ import { StartupOrgGenerator } from '@/components/StartupOrgGenerator';
 // import { SaaSFinancialFreedomGuideTab } from '@/components/guides/SaaSFinancialFreedomGuideTab'; // New Guide Tab
 // import { PseudocodeViewer } from '@/components/PseudocodeViewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { PromptGenerator } from '@/components/PromptGenerator'; // Assuming PromptGenerator is a component
+import { PromptGenerator, type PromptType } from '@/components/PromptGenerator'; // Assuming PromptGenerator is a component
 import { PseudocodeGenerator } from '@/lib/templates/PseudocodeGenerator'; // Assuming PseudocodeGenerator is a component
+import { useAuth } from '@/lib/auth'; // Fixed import path
+import type { TemplateVariables } from '@/lib/promptTemplates';
+
+// --- Dashboard Pseudocode Scaffold ---
+// Authentication State:
+//   - If not authenticated, show login/register form
+//   - If authenticated as user:
+//       - Show user's artifacts (filtered by userId)
+//       - Show "Create Artifact" button
+//       - Show "Gallery" (public artifacts from all users)
+//       - Each artifact: Edit/Delete/Share/Like/Star
+//       - Share modal: toggle isPublic, add emails, generate/copy short URL
+//   - If authenticated as admin:
+//       - Show all users, all artifacts, admin controls
+//   - Pixel avatars: use avatarSeed/bannerSeed to render unique icons
+//
+// Gallery of Applets:
+//   - Accessible to all users and guests if artifact.isPublic
+//   - Render pixel avatars for each artifact/user
+//   - <PixelatedAvatar seed={artifact.avatarSeed || artifact.id} />
+//   - <PixelBanner seed={artifact.bannerSeed || artifact.id} />
+//
+// Pixel Avatar API endpoint (Bun server):
+//   - GET /api/avatar/:seed returns a deterministic SVG or PNG
+//   - Use in <img src={`/api/avatar/${seed}`} />
+//
+// Default port for Bun server should be set to 3693
+//
+// See backend/server.ts for API endpoint scaffolding
 
 export function DashboardLayout() {
   const { layout, setLayout, 
@@ -85,8 +114,9 @@ export function DashboardLayout() {
     createFolder,
     shareFolder,
     deleteFolder,
-    authState
   } = useDashboard();
+
+  const { authState } = useAuth();
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,6 +185,67 @@ export function DashboardLayout() {
     );
   };
 
+  // Declare createArtifact before using it
+  const createArtifact = async (
+    type: string,
+    content?: any, // Changed from string to any to accommodate various artifact types
+    title?: string,
+    language?: string,
+    metadata?: any
+  ) => {
+    if (!authState.user) {
+      toast.error('You must be logged in to create artifacts.');
+      return;
+    }
+
+    let artifactTitle = title || `New ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    let artifactContent = content || '';
+    let artifactLanguage = language;
+    let artifactMetadata = metadata || {};
+
+    if (type === 'prompt') {
+      artifactTitle = title || `Prompt: ${metadata?.promptName || 'Untitled'}`;
+      artifactContent = content; // content is the generated prompt string
+      artifactMetadata = { ...metadata, promptType: activePromptTypeForModal };
+      closePromptGeneratorModal();
+    } else if (type === 'pseudocode') {
+      artifactTitle = title || `Pseudocode: ${metadata?.generatorType || 'Untitled'}`;
+      artifactContent = content; // content is the generated pseudocode string
+      artifactLanguage = metadata?.language || 'plaintext'; // Or derive from pseudocode type
+      artifactMetadata = { ...metadata, pseudocodeType: activePseudocodeTypeForModal };
+      closePseudocodeGeneratorModal();
+    } else if (type === 'organization') {
+        artifactTitle = title || `Startup Org: ${content.companyName || 'Untitled'}`;
+        // content is already the StartupOrgData object
+        artifactMetadata = { ...metadata, orgData: content };
+        setShowStartupOrgGenerator(false); // Close its specific modal if it has one
+    }
+
+    try {
+      const newArtifact = await dbService.createArtifact({
+        userId: authState.user.id,
+        title: artifactTitle,
+        type: type as ArtifactData['type'],
+        content: typeof artifactContent === 'string' ? artifactContent : JSON.stringify(artifactContent),
+        language: artifactLanguage,
+        folderId: selectedFolderId,
+        metadata: artifactMetadata,
+      });
+      // setArtifacts(prev => [newArtifact, ...prev]);
+      setSelectedArtifactId(newArtifact.id);
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} artifact created: ${newArtifact.title}`);
+      
+      // Close modals after creation
+      if (showPromptGeneratorModal) closePromptGeneratorModal();
+      if (showPseudocodeGeneratorModal) closePseudocodeGeneratorModal();
+      if (showStartupOrgGenerator) setShowStartupOrgGenerator(false);
+
+    } catch (error) {
+      console.error('Failed to create artifact:', error);
+      toast.error(`Failed to create ${type} artifact.`);
+    }
+  };
+
   // Prepare tabs content for the left sidebar
   const tabsContent = (
     <DashboardTabs
@@ -221,66 +312,6 @@ export function DashboardLayout() {
   const closePseudocodeGeneratorModal = () => {
     setShowPseudocodeGeneratorModal(false);
     setActivePseudocodeTypeForModal(null);
-  };
-
-  const createArtifact = async (
-    type: string,
-    content?: any, // Changed from string to any to accommodate various artifact types
-    title?: string,
-    language?: string,
-    metadata?: any
-  ) => {
-    if (!authState.user) {
-      toast.error('You must be logged in to create artifacts.');
-      return;
-    }
-
-    let artifactTitle = title || `New ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    let artifactContent = content || '';
-    let artifactLanguage = language;
-    let artifactMetadata = metadata || {};
-
-    if (type === 'prompt') {
-      artifactTitle = title || `Prompt: ${metadata?.promptName || 'Untitled'}`;
-      artifactContent = content; // content is the generated prompt string
-      artifactMetadata = { ...metadata, promptType: activePromptTypeForModal };
-      closePromptGeneratorModal();
-    } else if (type === 'pseudocode') {
-      artifactTitle = title || `Pseudocode: ${metadata?.generatorType || 'Untitled'}`;
-      artifactContent = content; // content is the generated pseudocode string
-      artifactLanguage = metadata?.language || 'plaintext'; // Or derive from pseudocode type
-      artifactMetadata = { ...metadata, pseudocodeType: activePseudocodeTypeForModal };
-      closePseudocodeGeneratorModal();
-    } else if (type === 'organization') {
-        artifactTitle = title || `Startup Org: ${content.companyName || 'Untitled'}`;
-        // content is already the StartupOrgData object
-        artifactMetadata = { ...metadata, orgData: content };
-        setShowStartupOrgGenerator(false); // Close its specific modal if it has one
-    }
-
-    try {
-      const newArtifact = await dbService.createArtifact({
-        userId: authState.user.id,
-        title: artifactTitle,
-        type: type as ArtifactData['type'],
-        content: typeof artifactContent === 'string' ? artifactContent : JSON.stringify(artifactContent),
-        language: artifactLanguage,
-        folderId: selectedFolderId,
-        metadata: artifactMetadata,
-      });
-      setArtifacts(prev => [newArtifact, ...prev]);
-      setSelectedArtifactId(newArtifact.id);
-      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} artifact created: ${newArtifact.title}`);
-      
-      // Close modals after creation
-      if (showPromptGeneratorModal) closePromptGeneratorModal();
-      if (showPseudocodeGeneratorModal) closePseudocodeGeneratorModal();
-      if (showStartupOrgGenerator) setShowStartupOrgGenerator(false);
-
-    } catch (error) {
-      console.error('Failed to create artifact:', error);
-      toast.error(`Failed to create ${type} artifact.`);
-    }
   };
 
   return (
@@ -542,8 +573,9 @@ export function DashboardLayout() {
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] p-1">
             {activePromptTypeForModal && (
-              <PromptGenerator 
-                // This component needs to be adapted to take an initial type and an onSave/onGenerate callback
+              <PromptGenerator onSave={function (generatedPrompt: string, inputs: TemplateVariables, promptType: PromptType): void {
+                throw new Error('Function not implemented.');
+              } }                // This component needs to be adapted to take an initial type and an onSave/onGenerate callback
                 // For now, we assume it can be configured or will use its internal state based on a prop
                 // This is a placeholder for how it would be integrated.
                 // It should call createArtifact('prompt', generatedPromptString, title, null, { promptName: activePromptTypeForModal, inputs: formValues })
@@ -564,8 +596,8 @@ export function DashboardLayout() {
             {activePseudocodeTypeForModal && (
               <PseudocodeGenerator
                 initialGenerationType={activePseudocodeTypeForModal as any} // Cast as any for now
-                onGenerate={(code, metadata) => {
-                  createArtifact('pseudocode', code, `Pseudocode: ${metadata?.type || activePseudocodeTypeForModal}`, metadata?.language, { generatorType: activePseudocodeTypeForModal, ...metadata });
+                onSave={(code, metadata) => {
+                  return createArtifact('pseudocode', code, `Pseudocode: ${metadata?.type || activePseudocodeTypeForModal}`, metadata?.language, { generatorType: activePseudocodeTypeForModal, ...metadata });
                 }}
                 onClose={closePseudocodeGeneratorModal}
               />

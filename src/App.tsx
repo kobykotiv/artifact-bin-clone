@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { toast } from "sonner";
 // Keep existing artifact imports if the old view is still used for non-logged-in users
 import { type Artifact, deleteArtifact, getAllArtifacts, getArtifact, saveArtifact, getArtifactStats } from "@/lib/db";
+import { dbService } from "@/lib/services/db";
 import { ArtifactList } from "@/components/ArtifactList";
 import { ArtifactEditor } from "@/components/ArtifactEditor";
 import { ArtifactPreview } from "@/components/ArtifactPreview";
@@ -49,13 +50,22 @@ export function App() {
   // --- End Auth Effect ---
 
 
-  // --- Existing Artifact Bin Logic (conditionally used) ---
+  // --- Refactored Artifact Loading ---
   const loadArtifacts = async () => {
     try {
-      const allArtifacts = await getAllArtifacts();
-      setArtifacts(allArtifacts);
-      const currentStats = await getArtifactStats();
-      setStats(currentStats);
+      if (authState.isAuthenticated && authState.user?.id) {
+        // Load artifacts for the current user (auth or guest)
+        const userArtifacts = await dbService.getArtifactsByUser(authState.user.id);
+        setArtifacts(userArtifacts);
+        // Optionally, compute stats for user artifacts
+        setStats({ count: userArtifacts.length, size: new TextEncoder().encode(userArtifacts.map(a => JSON.stringify(a)).join('')).length });
+      } else {
+        // Fallback: load all artifacts from IndexedDB (legacy/offline mode)
+        const allArtifacts = await getAllArtifacts();
+        setArtifacts(allArtifacts);
+        const currentStats = await getArtifactStats();
+        setStats(currentStats);
+      }
     } catch (error) {
       console.error("Failed to load artifacts:", error);
       toast.error("Failed to load artifacts");
@@ -63,11 +73,9 @@ export function App() {
   };
 
   useEffect(() => {
-    // Only load old artifact view data if not authenticated
-    if (!authState.isAuthenticated) {
-        loadArtifacts();
-    }
-  }, [authState.isAuthenticated]); // Reload if auth state changes
+    // Always load artifacts when auth state changes
+    loadArtifacts();
+  }, [authState.isAuthenticated, authState.user?.id]);
 
   useEffect(() => {
     const loadSelectedArtifact = async () => {
@@ -139,18 +147,25 @@ export function App() {
     try {
       if (!currentArtifact) throw new Error("No artifact selected/being created");
 
-      const artifactToSave: Artifact = {
+      // Always set userId for authenticated/guest users
+      const artifactToSave: any = {
         ...currentArtifact,
         ...data, // Apply incoming changes (like title, code, language)
         updatedAt: new Date().toISOString(),
       };
-
+      if (authState.isAuthenticated && authState.user?.id) {
+        artifactToSave.userId = authState.user.id;
+      }
       // Ensure createdAt is set only once for new artifacts
       if (isNewArtifact && !artifactToSave.createdAt) {
         artifactToSave.createdAt = new Date().toISOString();
       }
 
-      await saveArtifact(artifactToSave);
+      if (authState.isAuthenticated && authState.user?.id) {
+        await dbService.saveArtifact(artifactToSave);
+      } else {
+        await saveArtifact(artifactToSave);
+      }
       toast.success("Artifact saved successfully");
 
       // Refresh list and select the saved/updated artifact
@@ -166,12 +181,13 @@ export function App() {
 
   const handleDeleteArtifact = async () => {
     if (!currentArtifact) return;
-
     try {
-      await deleteArtifact(currentArtifact.id);
+      if (authState.isAuthenticated && authState.user?.id) {
+        await dbService.deleteArtifact(currentArtifact.id);
+      } else {
+        await deleteArtifact(currentArtifact.id);
+      }
       toast.success("Artifact deleted");
-
-      // Refresh artifact list and clear selection
       setSelectedId(null);
       setCurrentArtifact(null);
       await loadArtifacts();
