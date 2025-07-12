@@ -276,3 +276,98 @@
     width: 320px;
   }
 }
+
+/* === Neobrutalist Styles for VersionHistory === */
+.version-history-neobrutalist {
+  background: #fffbe6;
+  border: 3px solid #222;
+  border-radius: 0.5rem;
+  box-shadow: 6px 6px 0 #222, 0 0 0 2px #fffbe6 inset;
+  padding: 1.5rem;
+  font-family: 'JetBrains Mono', 'Menlo', 'Monaco', monospace;
+}
+
+.version-history-neobrutalist h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #222;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  border-bottom: 2px solid #222;
+  padding-bottom: 0.25rem;
+}
+
+.version-history-neobrutalist .neobrutalist-version-btn {
+  border: 2px solid #222;
+  background: #f7f7f7;
+  color: #222;
+  border-radius: 0.25rem;
+  box-shadow: 2px 2px 0 #222;
+  margin-bottom: 0.5rem;
+  transition: background 0.1s, box-shadow 0.1s;
+}
+.version-history-neobrutalist .neobrutalist-version-btn.bg-muted {
+  background: #ffe066;
+  color: #222;
+}
+.version-history-neobrutalist .neobrutalist-version-btn:hover {
+  background: #ffe066;
+  box-shadow: 4px 4px 0 #222;
+}
+
+.version-history-neobrutalist .neobrutalist-diff-dialog {
+  border: 3px solid #222;
+  background: #fffbe6;
+  border-radius: 0.5rem;
+  box-shadow: 8px 8px 0 #222;
+}
+
+.version-history-neobrutalist .neobrutalist-diff-header {
+  border-bottom: 2px solid #222;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+  color: #222;
+  text-transform: uppercase;
+}
+
+.version-history-neobrutalist .neobrutalist-diff-controls button {
+  border: 2px solid #222;
+  background: #f7f7f7;
+  color: #222;
+  border-radius: 0.25rem;
+  box-shadow: 2px 2px 0 #222;
+  margin-right: 0.5rem;
+  font-size: 0.95em;
+}
+.version-history-neobrutalist .neobrutalist-diff-controls button.active,
+.version-history-neobrutalist .neobrutalist-diff-controls button:focus {
+  background: #ffe066;
+  color: #222;
+}
+
+.version-history-neobrutalist .react-diff-viewer {
+  border: 2px solid #222;
+  background: #fff;
+  border-radius: 0.25rem;
+  box-shadow: 2px 2px 0 #222;
+  font-family: 'JetBrains Mono', 'Menlo', 'Monaco', monospace;
+}
+
+.version-history-neobrutalist .react-diff-viewer tr {
+  border-bottom: 1px solid #222;
+}
+
+.version-history-neobrutalist .react-diff-viewer .diff-added {
+  background: #baffc9 !important;
+  color: #222 !important;
+}
+.version-history-neobrutalist .react-diff-viewer .diff-removed {
+  background: #ffb3ba !important;
+  color: #222 !important;
+}
+.version-history-neobrutalist .react-diff-viewer .diff-modified {
+  background: #ffe066 !important;
+  color: #222 !important;
+}

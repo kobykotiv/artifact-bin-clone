@@ -28,7 +28,7 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
   };
 
   const renderEditor = () => {
-    if (artifact.fileType === 'json' || artifact.language === 'json') {
+    if (artifact.language === 'json') {
       return (
         <JsonEditor 
           value={editedArtifact.content} 
@@ -72,6 +72,16 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
               setIsDirty(true);
             }}
             placeholder="Artifact Title"
+            className="max-w-xs"
+          />
+          <Input
+            value={editedArtifact.tags?.join(', ') || ''}
+            onChange={e => {
+              const tags = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
+              setEditedArtifact(prev => ({ ...prev, tags }));
+              setIsDirty(true);
+            }}
+            placeholder="Tags (comma separated)"
             className="max-w-xs"
           />
           <Select

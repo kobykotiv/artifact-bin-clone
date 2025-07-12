@@ -1,4 +1,5 @@
-import { openDB, IDBPDatabase } from 'idb';
+import { openDB } from 'idb';
+import type { IDBPDatabase } from 'idb';
 
 export interface Artifact {
   id: string;
@@ -8,6 +9,7 @@ export interface Artifact {
   createdAt: string;
   updatedAt: string;
   avatarSeed: string; // Add avatar seed field
+  tags?: string[]; // Add tags for compatibility with ArtifactData
 }
 
 const DB_NAME = 'artifact-bin';

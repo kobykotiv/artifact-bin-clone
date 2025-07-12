@@ -15,6 +15,7 @@ export interface ArtifactData {
   code?: string;
   createdAt: string;
   updatedAt: string;
+  tags?: string[]; // <-- Add tags field
 }
 
 export interface FolderData {

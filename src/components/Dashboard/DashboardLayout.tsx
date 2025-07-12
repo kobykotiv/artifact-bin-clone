@@ -320,7 +320,7 @@ export function DashboardLayout() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header Bar */}
       <div className="border-b bg-background p-2 flex-shrink-0 sticky-header">
-        <div className="large-screen-container mx-auto flex items-center justify-between">
+        <div className="large-screen-container mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 w-full">
           <div className="flex items-center gap-4">
             <h1 className="font-bold text-lg">Artifact Bin</h1>
             
@@ -516,58 +516,66 @@ export function DashboardLayout() {
       </div>
 
       {/* Main three-panel layout */}
-      <div className="flex-grow flex overflow-hidden">
+      <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
         {/* Left Explorer Panel */}
         {layout.showExplorer && (
-          <DashboardSidebar
-            position="left"
-            width={leftSidebarWidth}
-            toggleWidth={toggleLeftSidebarWidth}
-            theme={navTheme}
-            layout={layout}
-            setLayout={setLayout}
-            leftContent={tabsContent}
-          />
+          <div className="hidden md:block h-full">
+            <DashboardSidebar
+              position="left"
+              width={leftSidebarWidth}
+              toggleWidth={toggleLeftSidebarWidth}
+              theme={navTheme}
+              layout={layout}
+              setLayout={setLayout}
+              leftContent={tabsContent}
+            />
+          </div>
         )}
 
         {/* Main Content Area */}
-        <main className="flex-grow overflow-auto">
-          <div className="large-screen-container mx-auto p-4 dashboard-content-xl">
+        <main className="flex-grow overflow-auto w-full">
+          <div className="large-screen-container mx-auto p-2 md:p-4 dashboard-content-xl">
             {/* Existing content rendering */}
             {currentArtifact && (
-              <Card className="mt-6 xl:mt-8">
-                <CardContent className="p-6 xl:p-8">
+              <Card className="mt-4 md:mt-6 xl:mt-8">
+                <CardContent className="p-4 md:p-6 xl:p-8">
                   {renderArtifactComponent()}
                 </CardContent>
               </Card>
             )}
-
             {/* Gallery Component - Public Applets */}
             <Gallery />
           </div>
         </main>
 
         {/* Right Sidebar Panels */}
-        <DashboardSidebar
-          position="right"
-          width={rightSidebarWidth}
-          toggleWidth={toggleRightSidebarWidth}
-          theme={navTheme}
-          layout={layout}
-          setLayout={setLayout}
-          artifacts={artifacts}
-          createArtifact={createArtifact}
-          setSelectedFolderId={setSelectedFolderId}
-        />
-      </div>
-
-      {showStartupOrgGenerator && (
-        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center">
-          <StartupOrgGenerator 
-            onSave={(data) => createArtifact('organization', data)} 
+        <div className="hidden md:block h-full">
+          <DashboardSidebar
+            position="right"
+            width={rightSidebarWidth}
+            toggleWidth={toggleRightSidebarWidth}
+            theme={navTheme}
+            layout={layout}
+            setLayout={setLayout}
+            artifacts={artifacts}
+            createArtifact={createArtifact}
+            setSelectedFolderId={setSelectedFolderId}
           />
         </div>
-      )}
+      </div>
+
+      {/* Mobile Navigation Menu */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#fffbe6] border-t-2 border-[#222] flex md:hidden justify-around items-center py-2 shadow-lg">
+        <Button variant="ghost" size="icon" className="neobrutalist-version-btn" aria-label="Home">
+          <BarChart4 className="h-6 w-6" />
+        </Button>
+        <Button variant="ghost" size="icon" className="neobrutalist-version-btn" aria-label="Artifacts">
+          <FileText className="h-6 w-6" />
+        </Button>
+        <Button variant="ghost" size="icon" className="neobrutalist-version-btn" aria-label="Profile">
+          <UserAvatar username="demo-user" />
+        </Button>
+      </nav>
 
       {/* Prompt Generator Modal */}
       <Dialog open={showPromptGeneratorModal} onOpenChange={setShowPromptGeneratorModal}>
