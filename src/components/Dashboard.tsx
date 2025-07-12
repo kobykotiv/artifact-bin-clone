@@ -26,9 +26,9 @@ export default function Dashboard() {
 
   return (
     <DashboardProvider user={authState.user}>
-      <div className="dashboard-container large-screen-optimized">
+      {/* <div className="dashboard-container large-screen-optimized"> */}
         <DashboardLayout />
-      </div>
+      {/* </div> */}
     </DashboardProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { dbService } from '@/lib/services/db';
 import { type ArtifactData } from '@/lib/services/db';
@@ -146,6 +146,11 @@ export function DashboardLayout() {
   const [activePseudocodeTypeForModal, setActivePseudocodeTypeForModal] = useState<string | null>(null);
 
   const [setArtifacts] = useState<ArtifactData[]>([]); // Add missing state
+
+  // Gemini API key state
+  const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
+  const [showGeminiKeyModal, setShowGeminiKeyModal] = useState(false);
+  const geminiKeyInputRef = useRef<HTMLInputElement>(null);
 
   // Filter artifacts
   const filteredArtifacts = artifacts.filter(artifact => {
@@ -316,24 +321,46 @@ export function DashboardLayout() {
     setActivePseudocodeTypeForModal(null);
   };
 
+  // On mount, check for API key in memory cache/db (stubbed for now)
+  useEffect(() => {
+    // TODO: Replace with real memory cache/db lookup
+    const cached = window.sessionStorage.getItem('geminiApiKey');
+    if (!cached) setShowGeminiKeyModal(true);
+    else setGeminiApiKey(cached);
+  }, []);
+
+  // Save API key to memory cache/db (stubbed for now)
+  const handleSaveGeminiKey = () => {
+    const key = geminiKeyInputRef.current?.value.trim();
+    if (key) {
+      setGeminiApiKey(key);
+      window.sessionStorage.setItem('geminiApiKey', key); // Replace with secure cache/db in production
+      setShowGeminiKeyModal(false);
+    }
+  };
+
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden w-full min-w-0">
       {/* Header Bar */}
-      <div className="border-b bg-background p-2 flex-shrink-0 sticky-header">
-        <div className="large-screen-container mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 w-full">
-          <div className="flex items-center gap-4">
-            <h1 className="font-bold text-lg">Artifact Bin</h1>
-            
+      <div className="border-b bg-background p-2 flex-shrink-0 sticky-header w-full min-w-0 overflow-x-hidden">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 w-full min-w-0 px-2 md:px-6 xl:px-12 2xl:px-24">
+          <div className="flex items-center gap-4 min-w-0 w-full">
+            <h1 className="font-bold text-lg truncate max-w-[120px] sm:max-w-none">Artifact Bin</h1>
+            {/* Navigation Links */}
+            <nav className="flex gap-2">
+              <Button variant={activeTab === 'artifacts' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('artifacts')}>Artifacts</Button>
+              <Button variant={activeTab === 'gallery' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('gallery')}>Gallery</Button>
+            </nav>
             {/* File Menu in Header */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="file-menu-trigger">
                   <FileText className="mr-2 h-4 w-4" />
-                  File
+                  <span className="hidden xs:inline">File</span>
                   <ChevronDown className="ml-1 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64"> {/* Increased width for longer items */}
+              <DropdownMenuContent align="start" className="w-56 sm:w-64">
                 <DropdownMenuLabel>Create New</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => createArtifact('code')}>
@@ -448,30 +475,29 @@ export function DashboardLayout() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => setLayout({ showExplorer: !layout.showExplorer })}
               title={layout.showExplorer ? "Hide explorer" : "Show explorer"}
+              className="hidden xs:inline-flex"
             >
               <FolderOpen className="h-4 w-4" />
             </Button>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="relative w-[300px] md:w-[400px] xl:w-[500px]">
+          <div className="flex items-center gap-4 w-full sm:w-auto min-w-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="relative w-full max-w-[300px] md:max-w-[400px] xl:max-w-[500px]">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search artifacts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
+                  className="pl-8 w-full"
                 />
               </div>
               <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-                <SelectTrigger className="w-[150px] xl:w-[180px]">
+                <SelectTrigger className="w-[110px] sm:w-[150px] xl:w-[180px]">
                   <SelectValue placeholder="Language" />
                 </SelectTrigger>
                 <SelectContent>
@@ -494,33 +520,30 @@ export function DashboardLayout() {
                 />
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <UserAvatar username="demo-user" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main three-panel layout */}
-      <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-        {/* Left Explorer Panel */}
-        {layout.showExplorer && (
-          <div className="hidden md:block h-full">
-            <DashboardSidebar
-              position="left"
-              width={leftSidebarWidth}
-              toggleWidth={toggleLeftSidebarWidth}
-              theme={navTheme}
-              layout={layout}
-              setLayout={setLayout}
-              leftContent={tabsContent}
-            />
-          </div>
-        )}
-
+      {/* Main layout: Sidebar is now the main flex child */}
+      <div className="flex flex-1 min-h-0 w-full min-w-0">
+        {/* Left Sidebar as Main */}
+        <div className="flex flex-col h-full min-w-0 w-[260px] max-w-xs flex-shrink-0">
+          <DashboardSidebar
+            position="left"
+            width={leftSidebarWidth}
+            toggleWidth={toggleLeftSidebarWidth}
+            theme={navTheme}
+            layout={layout}
+            setLayout={setLayout}
+            leftContent={tabsContent}
+          />
+        </div>
         {/* Main Content Area */}
-        <main className="flex-grow overflow-auto w-full">
-          <div className="large-screen-container mx-auto p-2 md:p-4 dashboard-content-xl">
+        <main className="flex-1 flex flex-col overflow-auto w-full min-w-0">
+          <div className="p-2 md:p-4 w-full min-w-0">
             {/* Existing content rendering */}
             {currentArtifact && (
               <Card className="mt-4 md:mt-6 xl:mt-8">
@@ -533,9 +556,8 @@ export function DashboardLayout() {
             <Gallery />
           </div>
         </main>
-
         {/* Right Sidebar Panels */}
-        <div className="hidden md:block h-full">
+        <div className="hidden md:flex flex-col h-full min-w-0 w-[260px] max-w-xs flex-shrink-0">
           <DashboardSidebar
             position="right"
             width={rightSidebarWidth}
@@ -602,6 +624,26 @@ export function DashboardLayout() {
               />
             )}
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Gemini API Key Modal */}
+      <Dialog open={showGeminiKeyModal} onOpenChange={setShowGeminiKeyModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter your Gemini API Key</DialogTitle>
+            <DialogDescription>
+              To enable AI-powered code suggestions and summaries, please enter your Gemini API key. You can get one from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600">Google AI Studio</a>.
+            </DialogDescription>
+          </DialogHeader>
+          <input
+            ref={geminiKeyInputRef}
+            type="password"
+            className="w-full border rounded p-2 mb-2"
+            placeholder="Paste your Gemini API key here"
+            autoFocus
+          />
+          <Button onClick={handleSaveGeminiKey} className="w-full">Save API Key</Button>
         </DialogContent>
       </Dialog>
     </div>

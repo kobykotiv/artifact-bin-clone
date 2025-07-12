@@ -72,3 +72,5 @@ export const getArtifactStats = async (): Promise<{ count: number; size: number 
   
   return { count, size };
 };
+
+export type { UserData } from './models/User';

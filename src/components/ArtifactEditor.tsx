@@ -8,6 +8,7 @@ import { languages } from '@/lib/languages';
 import { type ArtifactData } from '@/lib/services/db';
 import { Save, X } from 'lucide-react';
 import { JsonEditor } from './JsonEditor';
+import { getAISuggestions } from '@/lib/aiSuggestions';
 
 interface ArtifactEditorProps {
   artifact: ArtifactData;
@@ -18,6 +19,9 @@ interface ArtifactEditorProps {
 export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorProps) {
   const [editedArtifact, setEditedArtifact] = useState<ArtifactData>(artifact);
   const [isDirty, setIsDirty] = useState(false);
+  const [aiSuggestions, setAISuggestions] = useState<string[]>([]);
+  const [aiLoading, setAILoading] = useState(false);
+  const [aiError, setAIError] = useState<string | null>(null);
 
   const handleSave = () => {
     onSave({
@@ -25,6 +29,19 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
       updatedAt: new Date().toISOString()
     });
     setIsDirty(false);
+  };
+
+  const handleAISuggestions = async () => {
+    setAILoading(true);
+    setAIError(null);
+    try {
+      const suggestions = await getAISuggestions(editedArtifact);
+      setAISuggestions(suggestions);
+    } catch (e) {
+      setAIError('Failed to fetch AI suggestions.');
+    } finally {
+      setAILoading(false);
+    }
   };
 
   const renderEditor = () => {
@@ -124,6 +141,17 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
       </CardHeader>
       <CardContent className="p-0 flex-grow">
         {renderEditor()}
+        <div className="p-4 border-t bg-muted">
+          <Button size="sm" variant="outline" onClick={handleAISuggestions} disabled={aiLoading}>
+            {aiLoading ? 'Loading AI Suggestions...' : 'Get AI Suggestions'}
+          </Button>
+          {aiError && <div className="text-red-500 mt-2">{aiError}</div>}
+          {aiSuggestions.length > 0 && (
+            <ul className="mt-2 list-disc list-inside text-sm text-muted-foreground">
+              {aiSuggestions.map((s, i) => <li key={i}>{s}</li>)}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </>
   );

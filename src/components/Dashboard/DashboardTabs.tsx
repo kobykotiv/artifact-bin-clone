@@ -4,8 +4,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ArtifactList } from '@/components/ArtifactList';
 import { FolderView } from './FolderView';
 import PseudocodeGenerator from '@/lib/templates/PseudocodeGenerator';
-import { ArtifactData, FolderData } from '@/lib/services/db';
-import { LayoutState } from './types';
+import type { ArtifactData, FolderData } from '@/lib/services/db';
+import type { LayoutState } from './types';
 import { StartupOrgGenerator } from '../StartupOrgGenerator';
 
 interface DashboardTabsProps {
@@ -117,7 +117,11 @@ export function DashboardTabs({
       <div className="border rounded-lg p-4 mt-2">
         {layout.activeTab === "artifacts" && layout.tabVisibility.artifacts && (
           <ArtifactList
-            artifacts={filteredArtifacts}
+            artifacts={filteredArtifacts.map(a => ({
+              ...a,
+              language: a.language ?? 'javascript',
+              code: a.code ?? '', // ensure code is always present
+            }))}
             selectedId={selectedArtifactId}
             onSelect={setSelectedArtifactId}
             displayMode={viewMode}

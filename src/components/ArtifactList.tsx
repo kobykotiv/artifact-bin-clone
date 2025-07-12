@@ -9,6 +9,7 @@ import { Code, FileText, ChevronRight } from "lucide-react";
 
 interface ArtifactListProps {
   artifacts: Artifact[];
+  // The currently selected artifact ID
   selectedId: string | null;
   onSelect: (id: string) => void;
   displayMode?: 'grid' | 'list';
