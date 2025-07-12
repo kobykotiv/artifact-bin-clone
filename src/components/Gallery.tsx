@@ -4,6 +4,171 @@ import { UserAvatar } from "./UserAvatar";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+// Gemini-powered AI modal workflow
+function GeminiModal({ open, onClose, onAddArtifact }) {
+  const [apiKey, setApiKey] = useState(() => sessionStorage.getItem("geminiApiKey") || "");
+  const [step, setStep] = useState(0); // 0: key, 1: prompt, 2: plans, 3: code, 4: review
+  const [prompt, setPrompt] = useState("");
+  const [madLibProps, setMadLibProps] = useState<{ [k: string]: string }>({});
+  const [plans, setPlans] = useState<string[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Mad-lib prop extraction (e.g. {{propName}})
+  function extractMadLibs(text: string) {
+    const matches = text.match(/\{\{(.*?)\}\}/g) || [];
+    return Array.from(new Set(matches.map(m => m.slice(2, -2).trim())));
+  }
+
+  // Step 1: Save API key
+  function handleSaveKey() {
+    if (!apiKey) return setError("API key required");
+    sessionStorage.setItem("geminiApiKey", apiKey);
+    setError("");
+    setStep(1);
+  }
+
+  // Step 2: Enhance prompt and get plans
+  async function handleGetPlans() {
+    setError("");
+    setLoading(true);
+    try {
+      // Substitute mad-lib props
+      let finalPrompt = prompt;
+      for (const k in madLibProps) {
+        // Use replaceAll if available, else fallback
+        finalPrompt = finalPrompt.split(`{{${k}}}`).join(madLibProps[k]);
+      }
+      // Enhance prompt and get plans
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `You are an expert React developer. Given this prompt, generate 3 different high-level plans for building a React component. Prompt: ${finalPrompt}` }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 512 }
+        })
+      });
+      const data = await res.json();
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) throw new Error("No plans returned");
+      // Split plans by line or number
+      const planText = data.candidates[0].content.parts[0].text;
+      const planArr = planText.split(/\n\d+\. /).filter(Boolean).map((p, i) => (i === 0 && planText.startsWith("1. ") ? p : p.replace(/^\d+\. /, "")).trim());
+      setPlans(planArr.length ? planArr : [planText]);
+      setStep(2);
+    } catch (e) {
+      setError("Failed to get plans: " + (e.message || e.toString()));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 3: Generate code from plan
+  async function handleGenerateCode() {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Write a complete, production-ready React component in a single file based on this plan. Use functional components, hooks, and TypeScript if possible. Plan: ${selectedPlan}` }] }],
+          generationConfig: { temperature: 0.5, maxOutputTokens: 1024 }
+        })
+      });
+      const data = await res.json();
+      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) throw new Error("No code returned");
+      setGeneratedCode(data.candidates[0].content.parts[0].text);
+      setStep(3);
+    } catch (e) {
+      setError("Failed to generate code: " + (e.message || e.toString()));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 4: Add artifact
+  function handleAddArtifact() {
+    onAddArtifact({
+      id: "gemini-" + Date.now(),
+      userId: "gemini-user",
+      title: prompt.slice(0, 40) + (prompt.length > 40 ? "..." : ""),
+      description: selectedPlan,
+      type: "code",
+      language: "typescript",
+      content: generatedCode,
+      likes: 0, stars: 0, forks: 0, isPublic: true
+    });
+    onClose();
+    setTimeout(() => {
+      setStep(0); setPrompt(""); setPlans([]); setSelectedPlan(""); setGeneratedCode(""); setMadLibProps({});
+    }, 500);
+  }
+
+  // Modal content by step
+  let content;
+  if (step === 0) {
+    content = (
+      <div className="space-y-2">
+        <div className="font-semibold">Enter your Gemini API Key</div>
+        <input className="w-full border rounded p-2" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Paste your Gemini 2.5 Flash API key" />
+        <Button size="sm" onClick={handleSaveKey}>Save Key</Button>
+        <div className="text-xs text-muted-foreground">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a></div>
+      </div>
+    );
+  } else if (step === 1) {
+    const madLibs = extractMadLibs(prompt);
+    content = (
+      <div className="space-y-2">
+        <div className="font-semibold">Describe your React component</div>
+        <textarea className="w-full border rounded p-2" rows={3} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. A todo list with {{itemType}} and {{theme}}" />
+        {madLibs.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-sm">Fill in mad-lib props:</div>
+            {madLibs.map(k => (
+              <input key={k} className="w-full border rounded p-2" value={madLibProps[k] || ""} onChange={e => setMadLibProps(m => ({ ...m, [k]: e.target.value }))} placeholder={k} />
+            ))}
+          </div>
+        )}
+        <Button size="sm" onClick={handleGetPlans} disabled={!prompt || loading}>{loading ? "Generating..." : "Next: Plans"}</Button>
+      </div>
+    );
+  } else if (step === 2) {
+    content = (
+      <div className="space-y-2">
+        <div className="font-semibold">Select a plan</div>
+        <ul className="space-y-1">
+          {plans.map((p, i) => (
+            <li key={i} className={`border rounded p-2 cursor-pointer ${selectedPlan === p ? 'bg-muted' : ''}`} onClick={() => setSelectedPlan(p)}>{p}</li>
+          ))}
+        </ul>
+        <Button size="sm" onClick={handleGenerateCode} disabled={!selectedPlan || loading}>{loading ? "Generating..." : "Next: Generate Code"}</Button>
+      </div>
+    );
+  } else if (step === 3) {
+    content = (
+      <div className="space-y-2">
+        <div className="font-semibold">Generated React Component</div>
+        <textarea className="w-full border rounded p-2 font-mono" rows={10} value={generatedCode} onChange={e => setGeneratedCode(e.target.value)} />
+        <Button size="sm" onClick={handleAddArtifact}>Add to Gallery</Button>
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Gemini AI React Generator</DialogTitle>
+        </DialogHeader>
+        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+        {content}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const FILTERS = ["Trending", "Featured", "New"];
 
 // --- Factory-Proxy Pattern for Artifact Features ---
@@ -75,7 +240,7 @@ function GeminiAIModal({ open, onClose, onComponentGenerated }) {
     // Replace mad-libs in prompt
     let finalPrompt = prompt;
     for (const k of Object.keys(madLibs)) {
-      finalPrompt = finalPrompt.replaceAll(`{{${k}}}`, madLibs[k]);
+      finalPrompt = finalPrompt.split(`{{${k}}}`).join(madLibs[k]);
     }
     // Call Gemini to generate plans
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
@@ -420,12 +585,17 @@ export default function Calculator() {
     setArtifacts(prev => [newArtifact, ...prev]);
   }
 
+  // Add artifact from Gemini
+  function handleAddGeminiArtifact(artifact) {
+    setArtifacts(prev => [artifact, ...prev]);
+  }
+
   return (
     <div className="gallery p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Public Gallery</h2>
         <Button size="sm" variant="default" onClick={() => setShowGemini(true)}>
-          ✨ Build with AI
+          + Generate with Gemini
         </Button>
       </div>
       <div className="flex gap-2 mb-4">
@@ -521,6 +691,7 @@ export default function Calculator() {
         </DialogContent>
       </Dialog>
       <GeminiAIModal open={showGemini} onClose={() => setShowGemini(false)} onComponentGenerated={handleAddAIComponent} />
+      <GeminiModal open={showGemini} onClose={() => setShowGemini(false)} onAddArtifact={handleAddGeminiArtifact} />
     </div>
   );
 }
