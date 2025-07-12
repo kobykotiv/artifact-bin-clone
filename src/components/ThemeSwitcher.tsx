@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Sun, Moon, Zap } from 'lucide-react';
+import { Sun, Moon, Zap, Monitor, Eye, Palette, X } from 'lucide-react';
 
 const THEMES = [
-  { key: 'light', icon: <Sun />, label: 'Light' },
-  { key: 'dark', icon: <Moon />, label: 'Dark' },
-  { key: 'solarized', icon: <Zap />, label: 'Solarized' },
+  { key: 'light', icon: <Sun />, label: 'Light', description: 'Classic light theme' },
+  { key: 'dark', icon: <Moon />, label: 'Dark', description: 'Modern dark theme' },
+  { key: 'solarized', icon: <Zap />, label: 'Solarized', description: 'Easy on the eyes' },
+  { key: 'high-contrast', icon: <Eye />, label: 'High Contrast', description: 'Enhanced accessibility' },
+  { key: 'system', icon: <Monitor />, label: 'System', description: 'Follow system preference' },
+  { key: 'dracula', icon: <Palette />, label: 'Dracula', description: 'Dark theme with purple accents' },
 ];
 
-export function ThemeSwitcher() {
+interface ThemeSwitcherProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export function ThemeSwitcher({ open, onClose }: ThemeSwitcherProps = {}) {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
   useEffect(() => {

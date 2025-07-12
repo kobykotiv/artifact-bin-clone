@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { dbService, type FolderData, type ArtifactData } from '@/lib/services/db';
-import { ChevronRight, ChevronDown, Folder as FolderIcon, FileCode, Plus, MoreHorizontal, Edit, Trash2, FolderPlus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { dbService } from '@/lib/services/db';
+import { ChevronRight, ChevronDown, Folder as FolderIcon, FileCode, MoreHorizontal, Edit, Trash2, FolderPlus, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,28 +11,61 @@ import {
 import { Input } from './ui/input';
 import { toast } from 'sonner';
 
+type Tag = string;
+
+interface FolderData {
+  id: string;
+  name: string;
+  userId: string;
+  parentId?: string;
+  tags?: Tag[];
+}
+
+interface ArtifactData {
+  id: string;
+  title: string;
+  userId: string;
+  folderId?: string;
+  tags?: Tag[];
+}
+
 interface FolderExplorerProps {
-  activeArtifactId: string | null;
-  onSelectArtifact: (artifactId: string) => void;
-  // The user ID is needed to fetch the correct folders
   userId: string;
 }
 
 interface FolderWithArtifacts extends FolderData {
   artifacts: ArtifactData[];
   children: FolderWithArtifacts[];
+  id: string;
+  name: string;
+  parentId?: string;
 }
 
 export function FolderExplorer({
-  activeArtifactId,
-  onSelectArtifact,
   userId,
 }: FolderExplorerProps) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [folders, setFolders] = useState<FolderData[]>([]);
   const [artifacts, setArtifacts] = useState<ArtifactData[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedItems, setSelectedItems] = useState<{[id: string]: boolean}>({});
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState<{id: string, type: 'folder'|'artifact'}|null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filterType, setFilterType] = useState<'all' | 'folder' | 'artifact'>('all');
+  const [tagFilter, setTagFilter] = useState<Tag | null>(null);
+
+  const handleMouseEnter = () => {
+    setIsCollapsed(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsCollapsed(true);
+  };
 
   // Fetch initial data
   React.useEffect(() => {
@@ -46,30 +78,72 @@ export function FolderExplorer({
     fetchData();
   }, [userId]);
 
+  // Helper: sort function for folders and artifacts
+  const sortItems = <T extends { name?: string; title?: string; createdAt?: string }>(items: T[]): T[] => {
+    let sorted = [...items];
+    sorted.sort((a, b) => {
+      const aName = (a.name || (a as any).title || '').toLowerCase();
+      const bName = (b.name || (b as any).title || '').toLowerCase();
+      if (sortBy === 'name') {
+        return sortOrder === 'asc' ? aName.localeCompare(bName) : bName.localeCompare(aName);
+      } else if (sortBy === 'date') {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
+      }
+      return 0;
+    });
+    return sorted;
+  };
+
+  // Search filter logic
+  const filteredFolders = useMemo(() => {
+    let result = folders;
+    if (searchQuery.trim()) {
+      result = result.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    if (tagFilter) {
+      result = result.filter(f => f.tags?.includes(tagFilter));
+    }
+    if (filterType === 'folder') {
+      // already folders
+    }
+    return sortItems(result);
+  }, [folders, searchQuery, tagFilter, filterType, sortBy, sortOrder]);
+  const filteredArtifacts = useMemo(() => {
+    let result = artifacts;
+    if (searchQuery.trim()) {
+      result = result.filter(a => a.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    if (tagFilter) {
+      result = result.filter(a => a.tags?.includes(tagFilter));
+    }
+    if (filterType === 'artifact') {
+      // already artifacts
+    }
+    return sortItems(result);
+  }, [artifacts, searchQuery, tagFilter, filterType, sortBy, sortOrder]);
+
   const folderTree = useMemo(() => {
     const folderMap = new Map<string, FolderWithArtifacts>();
     const rootFolders: FolderWithArtifacts[] = [];
-
-    folders.forEach(folder => {
+    (filteredFolders).forEach(folder => {
       folderMap.set(folder.id, { ...folder, children: [], artifacts: [] });
     });
-
-    artifacts.forEach(artifact => {
+    (filteredArtifacts).forEach(artifact => {
       if (artifact.folderId && folderMap.has(artifact.folderId)) {
         folderMap.get(artifact.folderId)?.artifacts.push(artifact);
       }
     });
-
-    folders.forEach(folder => {
+    (filteredFolders).forEach(folder => {
       if (folder.parentId && folderMap.has(folder.parentId)) {
         folderMap.get(folder.parentId)?.children.push(folderMap.get(folder.id)!);
       } else {
         rootFolders.push(folderMap.get(folder.id)!);
       }
     });
-
     return rootFolders;
-  }, [folders, artifacts]);
+  }, [filteredFolders, filteredArtifacts]);
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
@@ -79,7 +153,7 @@ export function FolderExplorer({
     const newFolder = await dbService.createFolder({
       name: 'New Folder',
       userId,
-      parentId: parentId || undefined,
+      parentFolderId: parentId || undefined,
     });
     setFolders(prev => [...prev, newFolder]);
     setEditingFolderId(newFolder.id);
@@ -101,19 +175,67 @@ export function FolderExplorer({
 
   const handleDeleteFolder = async (folderId: string) => {
     await dbService.deleteFolder(folderId);
-    setFolders(prev => prev.filter(f => f.id !== folderId));
-    // Artifacts within the folder are now un-parented, you might want to refetch or update state
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    // Also remove from expanded state
+    setExpandedFolders((prev) => {
+      const newExpanded = { ...prev };
+      delete newExpanded[folderId];
+      return newExpanded;
+    });
+  };
+
+  // Drag-and-drop handlers (scaffold)
+  const handleDragStart = (id: string) => setDraggedId(id);
+  const handleDragEnd = () => setDraggedId(null);
+  const handleDrop = (targetId: string, type: 'folder'|'artifact') => {
+    // TODO: Move dragged item to new parent (update DB)
+    setDraggedId(null);
+    toast.success('Moved! (Not yet implemented)');
+  };
+
+  // Bulk selection
+  const toggleSelect = (id: string) => setSelectedItems(prev => ({...prev, [id]: !prev[id]}));
+  const clearSelection = () => setSelectedItems({});
+  const selectedCount = Object.values(selectedItems).filter(Boolean).length;
+
+  // Bulk actions (scaffold)
+  const handleBulkDelete = () => {
+    // TODO: Delete all selected
+    toast.success('Bulk delete (Not yet implemented)');
+    clearSelection();
+  };
+  const handleBulkMove = () => {
+    // TODO: Move all selected
+    toast.success('Bulk move (Not yet implemented)');
+    clearSelection();
+  };
+
+  // Sharing (scaffold)
+  const handleShare = (id: string, type: 'folder'|'artifact') => setShowShareModal({id, type});
+  const handleAddTag = (id: string, type: 'folder'|'artifact', tag: Tag) => {
+    // TODO: Update DB and state
+    toast.success('Tag added (Not yet implemented)');
+  };
+  const handleRemoveTag = (id: string, type: 'folder'|'artifact', tag: Tag) => {
+    // TODO: Update DB and state
+    toast.success('Tag removed (Not yet implemented)');
   };
 
   const renderFolder = (folder: FolderWithArtifacts) => (
-    <div key={folder.id} className="select-none">
-      <div
-        className="flex items-center py-1 px-1.5 rounded hover:bg-muted/50 group"
-      >
+    <div key={folder.id} className="select-none"
+      draggable
+      onDragStart={() => handleDragStart(folder.id)}
+      onDragEnd={handleDragEnd}
+      onDrop={e => { e.preventDefault(); handleDrop(folder.id, 'folder'); }}
+      onDragOver={e => e.preventDefault()}
+    >
+      <div className="flex items-center py-1 px-1.5 rounded hover:bg-muted/50 group">
+        <input type="checkbox" checked={!!selectedItems[folder.id]} onChange={() => toggleSelect(folder.id)} className="mr-1" />
         <span className="mr-1 cursor-pointer" onClick={() => toggleFolder(folder.id)}>
           {expandedFolders[folder.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </span>
         <FolderIcon className="h-4 w-4 mr-1.5 text-yellow-500" />
+        {/* Customizable icon/color (scaffold) */}
         {editingFolderId === folder.id ? (
           <Input
             type="text"
@@ -127,6 +249,7 @@ export function FolderExplorer({
         ) : (
           <span>{folder.name}</span>
         )}
+        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleShare(folder.id, 'folder')} title="Share"><Share2 className="h-4 w-4" /></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto opacity-0 group-hover:opacity-100">
@@ -146,42 +269,133 @@ export function FolderExplorer({
               <span>Rename</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleDeleteFolder(folder.id)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              <span>Delete</span>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {/* Preview/metadata on hover (scaffold) */}
+      <div className="hidden group-hover:block text-xs text-muted-foreground pl-8">Created: {/* TODO: date */}</div>
       {expandedFolders[folder.id] && (
-        <div className="ml-5 mt-1 space-y-1">
+        <div className="pl-4">
           {folder.children.map(renderFolder)}
-          {folder.artifacts.map(artifact => (
-            <div
-              key={artifact.id}
-              className={cn(
-                "flex items-center py-1 px-1.5 rounded cursor-pointer hover:bg-muted/50",
-                artifact.id === activeArtifactId && "bg-muted"
-              )}
-              onClick={() => onSelectArtifact(artifact.id)}
-            >
-              <FileCode className="h-4 w-4 mr-1.5 text-amber-500" />
-              <span>{artifact.title}</span>
-            </div>
-          ))}
+          {folder.artifacts.map(renderArtifact)}
         </div>
       )}
     </div>
   );
 
-  return (
-    <div className="p-2 space-y-1 text-sm">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold">Explorer</h3>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCreateFolder(null)}>
-          <Plus className="h-4 w-4" />
-        </Button>
+  const renderArtifact = (artifact: ArtifactData) => (
+    <div key={artifact.id} className="flex items-center py-1 px-1.5 rounded cursor-pointer hover:bg-muted/50"
+      draggable
+      onDragStart={() => handleDragStart(artifact.id)}
+      onDragEnd={handleDragEnd}
+      onDrop={e => { e.preventDefault(); handleDrop(artifact.id, 'artifact'); }}
+      onDragOver={e => e.preventDefault()}
+    >
+      <input type="checkbox" checked={!!selectedItems[artifact.id]} onChange={() => toggleSelect(artifact.id)} className="mr-1" />
+      <FileCode className="h-4 w-4 mr-1.5 text-amber-500" />
+      <span>{artifact.title}</span>
+      <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleShare(artifact.id, 'artifact')} title="Share"><Share2 className="h-4 w-4" /></Button>
+      {/* Tagging, favorite, pin, preview, etc. (scaffold) */}
+      <div className="ml-auto flex gap-1">
+        {(artifact.tags || []).map(tag => (
+          <span key={tag} className="text-xs rounded-full bg-blue-500 text-white px-2 py-0.5">
+            {tag}
+            <button onClick={() => handleRemoveTag(artifact.id, 'artifact', tag)} className="ml-1 text-white/70 hover:text-white">
+              &times;
+            </button>
+          </span>
+        ))}
+        <button onClick={() => handleAddTag(artifact.id, 'artifact', 'new-tag')} className="text-blue-400 hover:underline">
+          + Add Tag
+        </button>
       </div>
-      {folderTree.map(renderFolder)}
     </div>
+  );
+
+  return (
+    <>
+      <div
+        className={`fixed top-0 left-0 h-full bg-gray-900 text-white transition-all duration-300 ease-in-out z-50 ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            {!isCollapsed && <h2 className="text-lg font-bold">Explorer</h2>}
+            {!isCollapsed && (
+              <Button variant="ghost" size="sm" onClick={() => handleCreateFolder()}>
+                <FolderPlus className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+          {/* Search bar */}
+          {!isCollapsed && (
+            <div className="mb-2">
+              <Input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search folders or artifacts..."
+                className="w-full h-8"
+                aria-label="Search folders or artifacts"
+              />
+            </div>
+          )}
+          {/* Sorting and filtering controls */}
+          {!isCollapsed && (
+            <div className="mb-2 flex gap-2 items-center">
+              <label>Sort by:</label>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="bg-gray-800 text-white rounded px-2 py-1">
+                <option value="name">Name</option>
+                <option value="date">Date</option>
+              </select>
+              <button onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')} className="ml-1 px-2 py-1 rounded bg-gray-700">{sortOrder === 'asc' ? '↑' : '↓'}</button>
+              <label className="ml-4">Type:</label>
+              <select value={filterType} onChange={e => setFilterType(e.target.value as any)} className="bg-gray-800 text-white rounded px-2 py-1">
+                <option value="all">All</option>
+                <option value="folder">Folders</option>
+                <option value="artifact">Artifacts</option>
+              </select>
+              <label className="ml-4">Tag:</label>
+              <select value={tagFilter || ''} onChange={e => setTagFilter(e.target.value || null)} className="bg-gray-800 text-white rounded px-2 py-1">
+                <option value="">All</option>
+                {/* TODO: Populate with unique tags from folders/artifacts */}
+              </select>
+            </div>
+          )}
+          {/* Bulk actions toolbar */}
+          {!isCollapsed && selectedCount > 0 && (
+            <div className="mb-2 flex gap-2">
+              <Button size="sm" variant="destructive" onClick={handleBulkDelete}>Delete</Button>
+              <Button size="sm" onClick={handleBulkMove}>Move</Button>
+              <Button size="sm" onClick={clearSelection}>Clear</Button>
+            </div>
+          )}
+          {!isCollapsed && (
+            <div className="overflow-y-auto">
+              {folderTree.map(renderFolder)}
+              {filteredArtifacts
+                .filter(a => !a.folderId)
+                .map(renderArtifact)}
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Share modal (scaffold) */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white text-black rounded shadow-lg p-6 min-w-[320px]">
+            <h3 className="font-bold mb-2">Share {showShareModal.type === 'folder' ? 'Folder' : 'Artifact'}</h3>
+            <div className="mb-2">(Sharing UI not yet implemented)</div>
+            <Button onClick={() => setShowShareModal(null)}>Close</Button>
+          </div>
+        </div>
+      )}
+      {!isCollapsed && <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" />}
+    </>
   );
 }

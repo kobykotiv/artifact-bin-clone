@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Edit2, Download } from 'lucide-react';
-import { type ArtifactData } from '@/lib/services/db';
+// import { type ArtifactData } from '@/lib/services/db';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism.css';
 import 'prismjs/components/prism-typescript';
@@ -13,6 +13,11 @@ import 'prismjs/components/prism-tsx';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-markdown';
+import { ReviewForm } from './reviews/ReviewForm';
+import { ReviewList } from './reviews/ReviewList';
+import { dbService, type ReviewData } from '@/lib/services/db';
+import { Separator } from './ui/separator';
+import type { ArtifactData } from '@/lib/models/Artifact';
 
 interface ArtifactViewerProps {
   artifact: ArtifactData;
@@ -23,12 +28,21 @@ interface ArtifactViewerProps {
 
 export function ArtifactViewer({ artifact, className, onEdit, onDownload }: ArtifactViewerProps) {
   const codeRef = useRef<HTMLPreElement>(null);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+
+  const fetchReviews = async () => {
+    if (artifact.id) {
+      const fetchedReviews = await dbService.getReviewsForArtifact(artifact.id);
+      setReviews(fetchedReviews);
+    }
+  };
 
   useEffect(() => {
     if (codeRef.current) {
       Prism.highlightElement(codeRef.current);
     }
-  }, [artifact.content]);
+    fetchReviews();
+  }, [artifact.id, artifact.content]);
 
   const getLanguageClass = () => {
     switch (artifact.fileType) {
@@ -74,13 +88,22 @@ export function ArtifactViewer({ artifact, className, onEdit, onDownload }: Arti
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[calc(100vh-13rem)] rounded-lg">
+        <ScrollArea className="h-[calc(100vh-20rem)] rounded-lg">
           <pre className={`p-4 rounded-lg bg-zinc-950 ${getLanguageClass()}`}>
             <code ref={codeRef} className={getLanguageClass()}>
               {artifact.content}
             </code>
           </pre>
         </ScrollArea>
+        <Separator />
+        <div className="p-4 space-y-6">
+          <ReviewList reviews={reviews} />
+          <ReviewForm
+            artifactId={artifact.id}
+            userId="current_user" // Replace with actual user ID from auth
+            onReviewSubmit={fetchReviews}
+          />
+        </div>
       </CardContent>
     </Card>
   );

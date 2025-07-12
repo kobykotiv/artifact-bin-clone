@@ -1,23 +1,80 @@
 {
-  "name": "Artifact Bin",
+  "name": "Artifact Bin - Code Collaboration Platform",
   "short_name": "ArtifactBin",
-  "description": "Personal code snippet storage and management",
+  "description": "Modern code collaboration platform with AI-powered features, live preview, and social coding",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
-  "icons": [
+  "categories": ["productivity", "developer", "utilities"],
+  "scope": "/",
+  "launch_handler": {
+    "client_mode": "navigate-new"
+  },
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "edge_side_panel": {
+    "preferred_width": 480
+  },
+  "shortcuts": [
     {
-      "src": "icon-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "name": "New Artifact",
+      "short_name": "New",
+      "description": "Create a new code artifact",
+      "url": "/dashboard?action=new",
+      "icons": [{ "src": "icon.svg", "sizes": "96x96" }]
     },
     {
-      "src": "icon-512.svg",
+      "name": "Gallery",
+      "short_name": "Gallery",
+      "description": "Browse public gallery",
+      "url": "/gallery",
+      "icons": [{ "src": "icon.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "AI Generator",
+      "short_name": "AI Gen",
+      "description": "Generate code with AI",
+      "url": "/dashboard?tab=ai",
+      "icons": [{ "src": "icon.svg", "sizes": "96x96" }]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [".txt", ".js", ".ts", ".html", ".css", ".py", ".java", ".json", ".md"]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "/open",
+      "accept": {
+        "text/*": [".txt", ".js", ".ts", ".html", ".css", ".py", ".java", ".json", ".md", ".yml", ".xml"]
+      }
+    }
+  ],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }

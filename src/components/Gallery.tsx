@@ -3,6 +3,37 @@ import React, { useEffect, useState, useRef } from "react";
 import { UserAvatar } from "./UserAvatar";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdvancedSearch, type SearchFilters } from "./AdvancedSearch";
+import { LivePreview } from "./LivePreview";
+import { Badge } from "./ui/badge";
+import { Card, CardContent, CardHeader } from "./ui/card";
+import { CommentSystem } from "./CommentSystem";
+import { CollaborationWorkspace } from "./CollaborationWorkspace";
+import { NotificationCenter, useNotifications } from "./NotificationCenter";
+import { ThemeSwitcher } from "./ThemeSwitcher";
+import { InstallPrompt } from "./InstallPrompt";
+import { 
+  Eye, 
+  Code2, 
+  Users, 
+  TrendingUp, 
+  Calendar, 
+  Filter, 
+  Play, 
+  Star, 
+  Heart, 
+  GitFork, 
+  Maximize2, 
+  X, 
+  MessageSquare,
+  Bell,
+  Palette,
+  Download,
+  Bookmark,
+  Share2,
+  MoreVertical,
+  Settings
+} from "lucide-react";
 
 // Gemini-powered AI modal workflow
 function GeminiModal({ open, onClose, onAddArtifact }) {
@@ -216,151 +247,33 @@ function createArtifactFeatureProxy(artifact, userId) {
   };
 }
 
-// Gemini AI Modal and helpers
-function GeminiAIModal({ open, onClose, onComponentGenerated }) {
-  const [step, setStep] = useState(0); // 0: prompt, 1: plan, 2: choose, 3: result
-  const [apiKey, setApiKey] = useState(() => sessionStorage.getItem("geminiApiKey") || "");
-  const [prompt, setPrompt] = useState("");
-  const [madLibs, setMadLibs] = useState<{ [k: string]: string }>({});
-  const [plans, setPlans] = useState<string[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<string>("");
-  const [result, setResult] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const promptInput = useRef(null);
-
-  // Mad-lib style: extract {{prop}} from prompt
-  function extractMadLibs(text: string) {
-    const matches = text.match(/\{\{(.*?)\}\}/g) || [];
-    return matches.map(m => m.slice(2, -2));
-  }
-
-  // Step 1: Enhance prompt (plan)
-  async function handlePlan() {
-    setLoading(true);
-    // Replace mad-libs in prompt
-    let finalPrompt = prompt;
-    for (const k of Object.keys(madLibs)) {
-      finalPrompt = finalPrompt.split(`{{${k}}}`).join(madLibs[k]);
-    }
-    // Call Gemini to generate plans
-    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: `Given this prompt: '${finalPrompt}', generate 3 different high-level plans for how to build a React component that fulfills the request. Each plan should be a short paragraph.` }] }],
-        generationConfig: { temperature: 0.6, candidateCount: 3 }
-      })
-    });
-    const data = await res.json();
-    const planTexts = (data.candidates || []).map((c: any) => c.content?.parts?.[0]?.text || "");
-    setPlans(planTexts);
-    setStep(1);
-    setLoading(false);
-  }
-
-  // Step 2: Execute plan
-  async function handleExecute() {
-    setLoading(true);
-    // Call Gemini to generate code from plan
-    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: `Plan: ${selectedPlan}\n\nWrite a complete, functional React component (with props if needed) that implements this plan. Output only the code, no explanation.` }] }],
-        generationConfig: { temperature: 0.4, candidateCount: 1 }
-      })
-    });
-    const data = await res.json();
-    const code = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    setResult(code);
-    setStep(2);
-    setLoading(false);
-  }
-
-  function handlePromptSubmit(e) {
-    e.preventDefault();
-    // Save API key
-    sessionStorage.setItem("geminiApiKey", apiKey);
-    // Extract mad-libs
-    const props = extractMadLibs(prompt);
-    if (props.length > 0) {
-      setMadLibs(Object.fromEntries(props.map(p => [p, ""])));
-      setStep(-1); // mad-lib fill step
-    } else {
-      handlePlan();
-    }
-  }
-
-  function handleMadLibSubmit(e) {
-    e.preventDefault();
-    handlePlan();
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent style={{ minWidth: 400 }}>
-        <DialogHeader>
-          <DialogTitle>Gemini AI: Build React Component</DialogTitle>
-        </DialogHeader>
-        {step === 0 && (
-          <form onSubmit={handlePromptSubmit} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium">Gemini 2.5 Flash API Key</label>
-              <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full border rounded p-2" required />
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600">Get a free API key</a>
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Describe your component (use <code>{'{{prop}}'}</code> for mad-libs)</label>
-              <textarea ref={promptInput} value={prompt} onChange={e => setPrompt(e.target.value)} className="w-full border rounded p-2" rows={3} required placeholder="e.g. A button that says '{{label}}' and calls '{{onClick}}' when clicked" />
-            </div>
-            <Button type="submit" disabled={loading}>Next</Button>
-          </form>
-        )}
-        {step === -1 && (
-          <form onSubmit={handleMadLibSubmit} className="space-y-3">
-            <div className="text-sm">Fill in the blanks:</div>
-            {Object.keys(madLibs).map(k => (
-              <div key={k}>
-                <label className="block text-xs">{k}</label>
-                <input className="w-full border rounded p-2" value={madLibs[k]} onChange={e => setMadLibs(m => ({ ...m, [k]: e.target.value }))} required />
-              </div>
-            ))}
-            <Button type="submit" disabled={loading}>Continue</Button>
-          </form>
-        )}
-        {step === 1 && (
-          <div>
-            <div className="mb-2 text-sm">Choose a plan:</div>
-            <ul className="space-y-2">
-              {plans.map((plan, i) => (
-                <li key={i} className={`border rounded p-2 cursor-pointer ${selectedPlan === plan ? 'bg-blue-100' : ''}`} onClick={() => setSelectedPlan(plan)}>{plan}</li>
-              ))}
-            </ul>
-            <Button className="mt-3" disabled={!selectedPlan || loading} onClick={handleExecute}>Generate Component</Button>
-          </div>
-        )}
-        {step === 2 && (
-          <div>
-            <div className="mb-2 text-sm">Generated React Component:</div>
-            <pre className="bg-muted rounded p-2 overflow-x-auto text-xs max-h-64" style={{ whiteSpace: 'pre-wrap' }}>{result}</pre>
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" onClick={() => { navigator.clipboard.writeText(result); }}>Copy Code</Button>
-              <Button size="sm" onClick={() => { onComponentGenerated(result); onClose(); }}>Add to Gallery</Button>
-            </div>
-          </div>
-        )}
-        {loading && <div className="text-xs text-muted-foreground mt-2">Loading...</div>}
-      </DialogContent>
-    </Dialog>
-  );
-}
+// Enhanced search filters
+const SORT_OPTIONS = [
+  { value: 'created', label: 'Date Created' },
+  { value: 'updated', label: 'Last Updated' },
+  { value: 'likes', label: 'Most Liked' },
+  { value: 'stars', label: 'Most Starred' },
+  { value: 'forks', label: 'Most Forked' },
+  { value: 'title', label: 'Title A-Z' }
+];
 
 export function Gallery() {
   const [artifacts, setArtifacts] = useState<any[]>([]);
+  const [filteredArtifacts, setFilteredArtifacts] = useState<any[]>([]);
   const [filter, setFilter] = useState("Trending");
   const [shareArtifact, setShareArtifact] = useState<any | null>(null);
+  const [previewArtifact, setPreviewArtifact] = useState<any | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [showGemini, setShowGemini] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [commentArtifact, setCommentArtifact] = useState<any | null>(null);
+  const [collaborateArtifact, setCollaborateArtifact] = useState<any | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
+  const [bookmarkedArtifacts, setBookmarkedArtifacts] = useState<Set<string>>(new Set());
+  
+  // Use notification system
+  const { notifications, addNotification } = useNotifications();
 
   useEffect(() => {
     // Demo artifacts for guests
@@ -546,12 +459,22 @@ export default function Calculator() {
     );
   };
 
-  // Social action handlers
+  // Social action handlers with notifications
   const handleSocialAction = async (artifact: any, action: "like" | "star" | "fork") => {
     setLoadingId(artifact.id);
     // Optimistic update
     const key = action === "like" ? "likes" : action === "star" ? "stars" : "forks";
     updateArtifact(artifact.id, { [key]: (artifact[key] || 0) + 1 });
+    
+    // Add notification
+    addNotification({
+      type: action === 'like' ? 'like' : action === 'star' ? 'like' : 'fork',
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} added!`,
+      message: `You ${action}d "${artifact.title}"`,
+      timestamp: 'just now',
+      isRead: false
+    });
+    
     try {
       const res = await fetch(`/api/artifacts/${artifact.id}/${action}`, {
         method: "POST",
@@ -568,6 +491,33 @@ export default function Calculator() {
     } finally {
       setLoadingId(null);
     }
+  };
+
+  // Bookmark functionality
+  const toggleBookmark = (artifactId: string) => {
+    setBookmarkedArtifacts(prev => {
+      const newBookmarks = new Set(prev);
+      if (newBookmarks.has(artifactId)) {
+        newBookmarks.delete(artifactId);
+        addNotification({
+          type: 'system',
+          title: 'Bookmark removed',
+          message: 'Artifact removed from bookmarks',
+          timestamp: 'just now',
+          isRead: false
+        });
+      } else {
+        newBookmarks.add(artifactId);
+        addNotification({
+          type: 'system',
+          title: 'Bookmark added',
+          message: 'Artifact saved to bookmarks',
+          timestamp: 'just now',
+          isRead: false
+        });
+      }
+      return newBookmarks;
+    });
   };
 
   // Add artifact from AI
@@ -594,10 +544,57 @@ export default function Calculator() {
     <div className="gallery p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Public Gallery</h2>
-        <Button size="sm" variant="default" onClick={() => setShowGemini(true)}>
-          + Generate with Gemini
-        </Button>
+        <div className="flex gap-2">
+          {/* Notification center */}
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            onClick={() => setShowNotifications(true)}
+            className="relative"
+          >
+            <Bell className="w-4 h-4" />
+            {notifications.filter(n => !n.isRead).length > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
+              >
+                {notifications.filter(n => !n.isRead).length}
+              </Badge>
+            )}
+          </Button>
+          
+          {/* Theme switcher */}
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            onClick={() => setShowThemes(true)}
+          >
+            <Palette className="w-4 h-4" />
+          </Button>
+          
+          <Button size="sm" variant="outline" onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}>
+            <Filter className="w-4 h-4 mr-1" />
+            Advanced Search
+          </Button>
+          <Button size="sm" variant="default" onClick={() => setShowGemini(true)}>
+            + Generate with Gemini
+          </Button>
+        </div>
       </div>
+
+      {/* Advanced Search */}
+      {showAdvancedSearch && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <AdvancedSearch 
+              artifacts={artifacts}
+              onResultsChange={setFilteredArtifacts}
+              placeholder="Search artifacts by name, description, language..."
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex gap-2 mb-4">
         {FILTERS.map((f) => (
           <Button
@@ -610,60 +607,143 @@ export default function Calculator() {
           </Button>
         ))}
       </div>
+
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {artifacts.map((artifact) => (
-          <div
-            key={artifact.id}
-            className="artifact-card border rounded-lg p-4 bg-background"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span
-                onClick={() => (window.location.href = `/user/${artifact.userId}`)}
-                style={{ cursor: "pointer" }}
-              >
-                <UserAvatar username={artifact.userId} />
-              </span>
-              <span className="font-semibold">{artifact.title}</span>
-            </div>
-            <div className="mb-2 text-sm text-muted-foreground">
-              {artifact.description || artifact.type}
-            </div>
-            <div className="flex gap-2 mt-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={loadingId === artifact.id}
-                onClick={() => handleSocialAction(artifact, "like")}
-              >
-                👍 {artifact.likes || 0}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={loadingId === artifact.id}
-                onClick={() => handleSocialAction(artifact, "star")}
-              >
-                ⭐ {artifact.stars || 0}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={loadingId === artifact.id}
-                onClick={() => handleSocialAction(artifact, "fork")}
-              >
-                🍴 {artifact.forks || 0}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShareArtifact(artifact)}
-              >
-                🔗 Share
-              </Button>
-            </div>
-          </div>
+        {(showAdvancedSearch ? filteredArtifacts : artifacts).map((artifact) => (
+          <Card key={artifact.id} className="artifact-card">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <span
+                  onClick={() => (window.location.href = `/user/${artifact.userId}`)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <UserAvatar username={artifact.userId} />
+                </span>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm">{artifact.title}</h3>
+                  <Badge variant="outline" className="text-xs">
+                    {artifact.language}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {artifact.description || artifact.type}
+              </p>
+              
+              {/* Live Preview */}
+              {artifact.language === 'javascript' && (
+                <div className="border rounded p-2 bg-muted/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">Live Preview</span>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setPreviewArtifact(artifact)}
+                    >
+                      <Maximize2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <div className="h-32 overflow-hidden">
+                    <LivePreview 
+                      artifact={{
+                        ...artifact,
+                        content: artifact.content,
+                        language: artifact.language
+                      }}
+                      isVisible={true}
+                      className="scale-75 origin-top-left"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-1 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={loadingId === artifact.id}
+                  onClick={() => handleSocialAction(artifact, "like")}
+                  className="text-xs"
+                >
+                  <Heart className="w-3 h-3 mr-1" />
+                  {artifact.likes || 0}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={loadingId === artifact.id}
+                  onClick={() => handleSocialAction(artifact, "star")}
+                  className="text-xs"
+                >
+                  <Star className="w-3 h-3 mr-1" />
+                  {artifact.stars || 0}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={loadingId === artifact.id}
+                  onClick={() => handleSocialAction(artifact, "fork")}
+                  className="text-xs"
+                >
+                  <GitFork className="w-3 h-3 mr-1" />
+                  {artifact.forks || 0}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShareArtifact(artifact)}
+                  className="text-xs"
+                >
+                  <Share2 className="w-3 h-3 mr-1" />
+                  Share
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => toggleBookmark(artifact.id)}
+                  className="text-xs"
+                >
+                  <Bookmark className={`w-3 h-3 mr-1 ${bookmarkedArtifacts.has(artifact.id) ? 'fill-current' : ''}`} />
+                  {bookmarkedArtifacts.has(artifact.id) ? 'Saved' : 'Save'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setCommentArtifact(artifact)}
+                  className="text-xs"
+                >
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  Comment
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setCollaborateArtifact(artifact)}
+                  className="text-xs"
+                >
+                  <Users className="w-3 h-3 mr-1" />
+                  Collaborate
+                </Button>
+                {artifact.language === 'javascript' && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPreviewArtifact(artifact)}
+                    className="text-xs"
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    Preview
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
+      
       {/* Share Modal */}
       <Dialog open={!!shareArtifact} onOpenChange={() => setShareArtifact(null)}>
         <DialogContent>
@@ -690,8 +770,61 @@ export default function Calculator() {
           )}
         </DialogContent>
       </Dialog>
-      <GeminiAIModal open={showGemini} onClose={() => setShowGemini(false)} onComponentGenerated={handleAddAIComponent} />
+
+      {/* Fullscreen Preview Modal */}
+      <Dialog open={!!previewArtifact} onOpenChange={() => setPreviewArtifact(null)}>
+        <DialogContent className="max-w-6xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Live Preview: {previewArtifact?.title}</span>
+              <Button variant="ghost" size="sm" onClick={() => setPreviewArtifact(null)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          {previewArtifact && (
+            <div className="h-96 overflow-auto">
+              <LivePreview 
+                artifact={previewArtifact}
+                isVisible={true}
+                className="w-full h-full"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Gemini Modal */}
       <GeminiModal open={showGemini} onClose={() => setShowGemini(false)} onAddArtifact={handleAddGeminiArtifact} />
+
+      {/* Comment System */}
+      <CommentSystem 
+        artifactId={commentArtifact?.id || ""}
+        open={!!commentArtifact}
+        onClose={() => setCommentArtifact(null)}
+      />
+
+      {/* Collaboration Workspace */}
+      <CollaborationWorkspace
+        artifactId={collaborateArtifact?.id || ""}
+        open={!!collaborateArtifact}
+        onClose={() => setCollaborateArtifact(null)}
+      />
+
+      {/* Notification Center */}
+      <NotificationCenter
+        open={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
+
+      {/* Theme Switcher */}
+      <ThemeSwitcher
+        open={showThemes}
+        onClose={() => setShowThemes(false)}
+      />
+
+      {/* PWA Install Prompt */}
+      <InstallPrompt />
     </div>
   );
 }

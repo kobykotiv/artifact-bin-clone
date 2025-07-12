@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Bot, History, Lightbulb, HistoryIcon, Plus, Edit, Trash2, Check, X } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { type ArtifactData } from '@/lib/services/db';
+import { type ArtifactData } from '@/lib/models/Artifact';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 
@@ -24,10 +24,11 @@ interface PromptTemplate {
   id: string;
   name: string;
   template: string;
-  variables: string[]; // Variable identifiers 
+  variables: string[]; // Variable identifiers
 }
 
 export function PromptSidebar({ artifactId, artifact }: PromptSidebarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [prompt, setPrompt] = useState('');
   const [activeTab, setActiveTab] = useState('prompt');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +36,16 @@ export function PromptSidebar({ artifactId, artifact }: PromptSidebarProps) {
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<PromptTemplate | null>(null);
   const [newTemplate, setNewTemplate] = useState<Partial<PromptTemplate> | null>(null);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+
+  const handleMouseEnter = () => {
+    setIsCollapsed(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsCollapsed(true);
+  };
 
   useEffect(() => {
     // Load prompt history from localStorage
@@ -57,6 +68,35 @@ export function PromptSidebar({ artifactId, artifact }: PromptSidebarProps) {
       }
     }
   }, []);
+
+  const handleAddTemplate = () => {
+    if (!newTemplateName.trim()) return;
+    const newTpl: PromptTemplate = {
+      id: crypto.randomUUID(),
+      name: newTemplateName,
+      template: 'New template content...',
+      variables: [],
+    };
+    const updatedTemplates = [...templates, newTpl];
+    setTemplates(updatedTemplates);
+    localStorage.setItem('promptTemplates', JSON.stringify(updatedTemplates));
+    setNewTemplateName('');
+    toast.success('Template added');
+  };
+
+  const handleUpdateTemplate = (id: string, updates: Partial<PromptTemplate>) => {
+    const updatedTemplates = templates.map((t) => (t.id === id ? { ...t, ...updates } : t));
+    setTemplates(updatedTemplates);
+    localStorage.setItem('promptTemplates', JSON.stringify(updatedTemplates));
+    toast.success('Template updated');
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    const updatedTemplates = templates.filter((t) => t.id !== id);
+    setTemplates(updatedTemplates);
+    localStorage.setItem('promptTemplates', JSON.stringify(updatedTemplates));
+    toast.success('Template deleted');
+  };
 
   const handleSendPrompt = async () => {
     if (!prompt.trim() || !artifactId) return;
@@ -216,242 +256,145 @@ export function PromptSidebar({ artifactId, artifact }: PromptSidebarProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <Tabs defaultValue="prompt" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-        <TabsList className="grid grid-cols-3 h-9 w-full">
-          <TabsTrigger value="prompt">
-            <Bot className="h-3.5 w-3.5 mr-1" />
-            Prompt
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            <HistoryIcon className="h-3.5 w-3.5 mr-1" />
-            History
-          </TabsTrigger>
-          <TabsTrigger value="templates">
-            <Lightbulb className="h-3.5 w-3.5 mr-1" />
-            Templates
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="prompt" className="flex-grow flex flex-col p-2">
-          {artifactId ? (
-            <>
-              <div className="text-xs text-muted-foreground mb-2">
-                Ask Claude about{' '}
-                <span className="font-semibold">
-                  {artifact?.title || artifactId}
-                </span>
-              </div>
-
-              <Textarea
-                placeholder="Ask Claude to review this artifact, suggest improvements, or explain how it works..."
-                className="flex-grow resize-none mb-2"
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-              />
-
-              <Button
-                onClick={handleSendPrompt}
-                disabled={!prompt.trim() || isLoading}
-                className="ml-auto"
-              >
-                {isLoading ? 'Sending...' : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send
-                  </>
-                )}
-              </Button>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="text-center">
-                <Bot className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                <p>Select an artifact to start a conversation with Claude</p>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="history" className="flex-grow p-2">
-          <ScrollArea className="h-full">
-            {promptHistory.length > 0 ? (
-              <div className="space-y-4">
-                {promptHistory.map(item => (
-                  <div key={item.id} className="space-y-1.5 text-sm">
-                    <p className="font-semibold">
-                      You: <span className="font-normal">{item.prompt}</span>
-                    </p>
-                    <p className="font-semibold">
-                      Claude: <span className="font-normal">{item.response}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </p>
-                    <hr className="mt-3 border-muted" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <div className="text-center">
-                  <History className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                  <p>No prompt history yet</p>
-                </div>
-              </div>
-            )}
-          </ScrollArea>
-        </TabsContent>
-
-        <TabsContent value="templates" className="flex-grow p-2">
-          <ScrollArea className="h-full">
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-medium">Prompt Templates:</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={startNewTemplate}
-                  className="h-7"
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" /> New
-                </Button>
-              </div>
-
-              {newTemplate && (
-                <div className="border rounded-md p-3 mb-3 space-y-2">
-                  <Input
-                    placeholder="Template name"
-                    value={newTemplate.name}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-                    className="mb-2"
-                  />
-                  <Textarea
-                    placeholder="Template content with {{variables}}"
-                    value={newTemplate.template}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, template: e.target.value })}
-                    rows={3}
-                    className="mb-2"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" onClick={cancelEdit} className="h-7">
-                      <X className="h-3.5 w-3.5 mr-1" /> Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => saveTemplate(newTemplate, true)}
-                      disabled={!newTemplate.name || !newTemplate.template}
-                      className="h-7"
-                    >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Save
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {editingTemplate && (
-                <div className="border rounded-md p-3 mb-3 space-y-2">
-                  <Input
-                    placeholder="Template name"
-                    value={editingTemplate.name}
-                    onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
-                    className="mb-2"
-                  />
-                  <Textarea
-                    placeholder="Template content with {{variables}}"
-                    value={editingTemplate.template}
-                    onChange={(e) => setEditingTemplate({ ...editingTemplate, template: e.target.value })}
-                    rows={3}
-                    className="mb-2"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" onClick={cancelEdit} className="h-7">
-                      <X className="h-3.5 w-3.5 mr-1" /> Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => saveTemplate(editingTemplate, false)}
-                      disabled={!editingTemplate.name || !editingTemplate.template}
-                      className="h-7"
-                    >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Update
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {templates.map(template => (
-                <div
-                  key={template.id}
-                  className="border rounded-md p-3 hover:border-muted-foreground/50 transition-colors"
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="font-medium">{template.name}</p>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        onClick={() => startEditTemplate(template)}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-destructive hover:text-destructive"
-                        onClick={() => deleteTemplate(template.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
+    <>
+      <div
+        className={`fixed top-0 right-0 h-full bg-gray-900 text-white transition-all duration-300 ease-in-out z-50 ${
+          isCollapsed ? 'w-16' : 'w-96'
+        }`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <ScrollArea className="h-full">
+          <div className="p-4">
+            <h2 className="text-lg font-bold mb-4">{isCollapsed ? '' : 'Prompt Engineering'}</h2>
+            {!isCollapsed && (
+              <Tabs defaultValue="chat" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="chat">
+                    <Bot className="w-4 h-4 mr-1" />
+                    Chat
+                  </TabsTrigger>
+                  <TabsTrigger value="templates">
+                    <Lightbulb className="w-4 h-4 mr-1" />
+                    Templates
+                  </TabsTrigger>
+                  <TabsTrigger value="history">
+                    <HistoryIcon className="w-4 h-4 mr-1" />
+                    History
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="chat">
+                  <div className="flex flex-col h-[calc(100vh-12rem)]">
+                    <ScrollArea className="flex-grow p-2 bg-gray-800 rounded-lg">
+                      <div className="space-y-4">
+                        {promptHistory.map(item => (
+                          <div key={item.id} className="space-y-1.5 text-sm">
+                            <p className="font-semibold">
+                              You: <span className="font-normal">{item.prompt}</span>
+                            </p>
+                            <p className="font-semibold">
+                              Claude: <span className="font-normal">{item.response}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(item.timestamp).toLocaleString()}
+                            </p>
+                            <hr className="mt-3 border-muted" />
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <div className="mt-4 flex items-center">
+                      <Textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        placeholder="Type your prompt here..."
+                        className="flex-grow bg-gray-800 border-gray-700 focus:ring-blue-500"
+                      />
+                      <Button onClick={handleSendPrompt} className="ml-2">
+                        <Send className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">{template.template}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {template.variables.map(variable => (
-                      <span
-                        key={variable}
-                        className="text-xs bg-muted px-2 py-0.5 rounded-sm"
-                      >
-                        {variable}
-                      </span>
+                </TabsContent>
+                <TabsContent value="templates">
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <Input
+                        value={newTemplateName}
+                        onChange={(e) => setNewTemplateName(e.target.value)}
+                        placeholder="New template name"
+                        className="flex-grow bg-gray-800 border-gray-700"
+                      />
+                      <Button onClick={handleAddTemplate} className="ml-2">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {templates.map((template) => (
+                      <div key={template.id} className="p-2 rounded-lg bg-gray-800">
+                        {editingTemplateId === template.id ? (
+                          <div className="flex items-center">
+                            <Input
+                              defaultValue={template.name}
+                              onBlur={(e) =>
+                                handleUpdateTemplate(template.id, { name: e.target.value })
+                              }
+                              className="flex-grow bg-gray-700 border-gray-600"
+                            />
+                            <Button
+                              onClick={() => setEditingTemplateId(null)}
+                              size="sm"
+                              variant="ghost"
+                              className="ml-2"
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-center">
+                            <span>{template.name}</span>
+                            <div>
+                              <Button
+                                onClick={() => setEditingTemplateId(template.id)}
+                                size="sm"
+                                variant="ghost"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-2 h-7"
-                    onClick={() => applyTemplate(template)}
-                  >
-                    Apply Template
-                  </Button>
-                </div>
-              ))}
-
-              {templates.length === 0 && !newTemplate && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Lightbulb className="h-10 w-10 mx-auto mb-2" />
-                  <p>No templates yet</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={startNewTemplate}
-                    className="mt-2"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Create Template
-                  </Button>
-                </div>
-              )}
-
-              <div className="mt-4">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Template variables use &#123;&#123;variable&#125;&#125; syntax. For options, use &#123;&#123;variable-option1-option2&#125;&#125;
-                </p>
-              </div>
-            </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-    </div>
+                </TabsContent>
+                <TabsContent value="history">
+                  <ScrollArea className="h-[calc(100vh-12rem)]">
+                    <div className="space-y-2">
+                      {promptHistory.map(entry => (
+                        <div key={entry.id} className="p-2 rounded-lg bg-gray-800">
+                          <div className="text-sm text-gray-400">
+                            {new Date(entry.timestamp).toLocaleString()}
+                          </div>
+                          <p className="truncate">{entry.prompt}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+      {!isCollapsed && <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" />}
+    </>
   );
 }

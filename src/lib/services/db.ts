@@ -1,40 +1,9 @@
-import { type IUser, type UserData } from "@/lib/models/User";
-import { type IPrompt, type PromptData } from "@/lib/models/Prompt";
-
-// Define interfaces for new entities
-export interface ArtifactData {
-  id: string;
-  userId: string;
-  title: string;
-  type: string;
-  content: string;
-  language?: string;
-  folderId?: string;
-  metadata?: any;
-  avatarSeed?: string;
-  code?: string;
-  createdAt: string;
-  updatedAt: string;
-  tags?: string[]; // <-- Add tags field
-}
-
-export interface FolderData {
-  id: string;
-  userId: string;
-  parentId?: string; // For nested folders
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProjectData {
-  id: string;
-  userId: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { type UserData } from "@/lib/models/User";
+import { type PromptData } from "@/lib/models/Prompt";
+import { type ReviewData } from "@/lib/models/Review";
+import { type ArtifactData } from "@/lib/models/Artifact";
+import { type FolderData } from "@/lib/models/Folder";
+import { type ProjectData } from "@/lib/models/Project";
 
 // Simulated database with localStorage for persistence
 class DBService {
@@ -44,6 +13,7 @@ class DBService {
   private artifacts: Map<string, ArtifactData> = new Map();
   private folders: Map<string, FolderData> = new Map();
   private projects: Map<string, ProjectData> = new Map();
+  private reviews: Map<string, ReviewData> = new Map();
 
   constructor() {
     this.load(); // Load data on initialization
@@ -160,6 +130,43 @@ class DBService {
     return deleted;
   }
 
+  // Review Operations
+  async createReview(reviewData: Omit<ReviewData, 'id' | 'createdAt' | 'updatedAt'>): Promise<ReviewData> {
+    const now = new Date().toISOString();
+    const review: ReviewData = {
+      id: crypto.randomUUID(),
+      ...reviewData,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.reviews.set(review.id, review);
+    await this.persist();
+    return review;
+  }
+
+  async getReviewsForArtifact(artifactId: string): Promise<ReviewData[]> {
+    return Array.from(this.reviews.values()).filter(review => review.artifactId === artifactId);
+  }
+
+  async updateReview(id: string, updates: Partial<Omit<ReviewData, 'id' | 'createdAt' | 'artifactId' | 'userId'>>): Promise<ReviewData | null> {
+    const review = this.reviews.get(id);
+    if (!review) {
+      return null;
+    }
+    const updatedReview = { ...review, ...updates, updatedAt: new Date().toISOString() };
+    this.reviews.set(id, updatedReview);
+    await this.persist();
+    return updatedReview;
+  }
+
+  async deleteReview(id: string): Promise<boolean> {
+    const deleted = this.reviews.delete(id);
+    if (deleted) {
+      await this.persist();
+    }
+    return deleted;
+  }
+
   // Artifact Operations
   async createArtifact(artifactData: Partial<ArtifactData>): Promise<ArtifactData> {
     if (!artifactData.userId) {
@@ -218,10 +225,6 @@ class DBService {
     return deleted;
   }
 
-  async getArtifactsByUser(userId: string): Promise<ArtifactData[]> {
-    return Array.from(this.artifacts.values()).filter(a => a.userId === userId);
-  }
-
   // Folder Operations
   async createFolder(folderData: Partial<FolderData>): Promise<FolderData> {
     if (!folderData.userId) {
@@ -275,10 +278,15 @@ class DBService {
   }
 
   // Project Operations
-  async createProject(projectData: Omit<ProjectData, 'id' | 'createdAt' | 'updatedAt'>): Promise<ProjectData> {
+  async createProject(projectData: Partial<ProjectData>): Promise<ProjectData> {
+    if (!projectData.userId) {
+      throw new Error("User ID is required for creating a project.");
+    }
     const project: ProjectData = {
-      ...projectData,
       id: crypto.randomUUID(),
+      userId: projectData.userId,
+      name: projectData.name || "Untitled Project",
+      description: projectData.description || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -315,11 +323,15 @@ class DBService {
   // Persistence
   private async persist() {
     try {
-      localStorage.setItem('db_users', JSON.stringify(Array.from(this.users.entries())));
-      localStorage.setItem('db_prompts', JSON.stringify(Array.from(this.prompts.entries())));
-      localStorage.setItem('db_artifacts', JSON.stringify(Array.from(this.artifacts.entries())));
-      localStorage.setItem('db_folders', JSON.stringify(Array.from(this.folders.entries())));
-      localStorage.setItem('db_projects', JSON.stringify(Array.from(this.projects.entries())));
+      const data = {
+        users: Array.from(this.users.entries()),
+        prompts: Array.from(this.prompts.entries()),
+        artifacts: Array.from(this.artifacts.entries()),
+        folders: Array.from(this.folders.entries()),
+        projects: Array.from(this.projects.entries()),
+        reviews: Array.from(this.reviews.entries()),
+      };
+      localStorage.setItem('db', JSON.stringify(data));
     } catch (error) {
       console.error('Error persisting data:', error);
     }
@@ -327,38 +339,18 @@ class DBService {
 
   private async load() {
     try {
-      const usersData = localStorage.getItem('db_users');
-      if (usersData) {
-        this.users = new Map(JSON.parse(usersData));
-      }
-
-      const promptsData = localStorage.getItem('db_prompts');
-      if (promptsData) {
-        this.prompts = new Map(JSON.parse(promptsData));
-      }
-
-      const artifactsData = localStorage.getItem('db_artifacts');
-      if (artifactsData) {
-        this.artifacts = new Map(JSON.parse(artifactsData));
-      }
-
-      const foldersData = localStorage.getItem('db_folders');
-      if (foldersData) {
-        this.folders = new Map(JSON.parse(foldersData));
-      }
-
-      const projectsData = localStorage.getItem('db_projects');
-      if (projectsData) {
-        this.projects = new Map(JSON.parse(projectsData));
+      const data = localStorage.getItem('db');
+      if (data) {
+        const parsedData = JSON.parse(data);
+        this.users = new Map(parsedData.users || []);
+        this.prompts = new Map(parsedData.prompts || []);
+        this.artifacts = new Map(parsedData.artifacts || []);
+        this.folders = new Map(parsedData.folders || []);
+        this.projects = new Map(parsedData.projects || []);
+        this.reviews = new Map(parsedData.reviews || []);
       }
     } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      // Initialize with empty maps if loading fails
-      this.users = new Map();
-      this.prompts = new Map();
-      this.artifacts = new Map();
-      this.folders = new Map();
-      this.projects = new Map();
+      console.error('Failed to load data from localStorage', error);
     }
   }
 }

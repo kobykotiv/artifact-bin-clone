@@ -7,7 +7,8 @@ export interface ArtifactData {
   userId: string; // Changed from Types.ObjectId to string for consistency with dbService usage
   folderId?: string; // Reference to parent folder
   projectId?: string;
-  name: string;
+  title: string;
+  type: string;
   content: string; // Represents the code/text content (simulates S3 link/content)
   fileType: string; // e.g., 'js', 'ts', 'json', 'md'
   tags: string[];
@@ -18,6 +19,11 @@ export interface ArtifactData {
   language: string; // Added based on existing Artifact interface in db.ts
   isPublic?: boolean; // Whether artifact is publicly accessible
   sharedWith?: string[]; // User IDs this artifact is shared with
+  metadata?: any;
+  description?: string;
+  likes?: number;
+  stars?: number;
+  forks?: number;
 }
 
 // Mongoose Document Interface
@@ -26,7 +32,7 @@ export interface IArtifact extends Document {
   folderId?: Types.ObjectId;
   projectId?: Types.ObjectId;
   name: string;
-  content: string; // In a real scenario, this might be an S3 key/URL
+  content: string;
   fileType: string;
   tags: string[];
   voteRatio?: number;
@@ -48,6 +54,11 @@ const ArtifactSchema = new Schema<IArtifact>({
   avatarSeed: { type: String, default: () => crypto.randomUUID() },
   isPublic: { type: Boolean, default: false },
   sharedWith: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  metadata: { type: Schema.Types.Mixed },
+  description: { type: String },
+  likes: { type: Number, default: 0 },
+  stars: { type: Number, default: 0 },
+  forks: { type: Number, default: 0 },
 }, {
   timestamps: true, // Adds createdAt and updatedAt automatically
   toJSON: { virtuals: true }, // Ensure virtuals like 'id' are included
