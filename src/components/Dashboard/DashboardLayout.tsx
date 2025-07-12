@@ -56,6 +56,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StartupOrgGenerator } from '@/components/StartupOrgGenerator';
+import { Gallery } from '../Gallery';
+import { PixelAvatar } from '../PixelAvatar';
 // import { StartupOrganizationGuideTab } from '@/components/Guides/StartupOrganizationGuideTab';
 // import { SaasBootstrapperGuideTab } from '@/components/Guides/SaaSBootstrapperGuideTab';
 // import { StartupScalingGuideTab } from '@/components/Guides/StartupScalingGuideTab';
@@ -539,6 +541,9 @@ export function DashboardLayout() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Gallery Component - Public Applets */}
+            <Gallery />
           </div>
         </main>
 
