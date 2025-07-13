@@ -5,9 +5,60 @@ import { authService } from "@/lib/services/auth";
 import Dashboard from "@/components/Dashboard";
 import { LogIn, Lightbulb } from 'lucide-react';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
+import React, { useState, useEffect } from 'react';
+
+// Add type definitions for User and Post
+interface User {
+  id: string;
+  username: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
+interface Post {
+  id: string;
+  userId: string;
+  username: string;
+  content: string;
+  tags?: string[];
+  isPublic?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 function AppContent() {
   const { authState, loginAsGuest } = useAuthContext();
+  const [users, setUsers] = useState<User[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Fetch users from API
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(data => {
+        setUsers(data.users);
+        setCurrentUser(data.users[0] || null);
+      });
+    // Fetch posts from API
+    fetch('/api/posts')
+      .then(res => res.json())
+      .then(data => setPosts(data.posts));
+  }, []);
+
+  const addPost = async (content: string, userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, username: user.username, content }),
+    });
+    if (res.ok) {
+      const { post } = await res.json();
+      setPosts(prev => [post, ...prev]);
+    }
+  };
 
   if (authState.status === 'unauthenticated') {
     return (

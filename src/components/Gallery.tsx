@@ -257,7 +257,7 @@ const SORT_OPTIONS = [
   { value: 'title', label: 'Title A-Z' }
 ];
 
-export function Gallery() {
+export function Gallery({ onSelectArtifact }: { onSelectArtifact?: (id: string) => void }) {
   const [artifacts, setArtifacts] = useState<any[]>([]);
   const [filteredArtifacts, setFilteredArtifacts] = useState<any[]>([]);
   const [filter, setFilter] = useState("Trending");

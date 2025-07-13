@@ -4,6 +4,7 @@ import { type ReviewData } from "@/lib/models/Review";
 import { type ArtifactData } from "@/lib/models/Artifact";
 import { type FolderData } from "@/lib/models/Folder";
 import { type ProjectData } from "@/lib/models/Project";
+export type { ArtifactData };
 
 // --- FORK OPERATIONS ---
 interface ForkData {

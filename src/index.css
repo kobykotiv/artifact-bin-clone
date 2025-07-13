@@ -49,3 +49,28 @@ body::before {
     animation: none !important;
   }
 }
+
+/* Line clamp utility for mobile cards */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Mobile optimizations for dashboard */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .dashboard-card {
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+  }
+  
+  .dashboard-card:active {
+    transform: scale(0.98);
+  }
+}

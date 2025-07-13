@@ -458,14 +458,16 @@ export function FolderExplorer({
 
   return (
     <>
+      {/* Animated sidebar */}
       <div
-        className={`fixed top-0 left-0 h-full bg-gray-900 text-white transition-all duration-300 ease-in-out z-50 ${
-          isCollapsed ? 'w-16' : 'w-64'
-        }`}
+        className={`fixed top-0 left-0 h-full bg-gray-900 text-white z-50 transition-[width] duration-300 ease-in-out shadow-lg p-4
+          ${isCollapsed ? 'w-16' : 'w-64'}
+        `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        style={{ willChange: 'width' }}
       >
-        <div className="p-4">
+        <div className="w-full h-full flex flex-col">
           <div className="flex justify-between items-center mb-4">
             {!isCollapsed && <h2 className="text-lg font-bold">Explorer</h2>}
             {!isCollapsed && (

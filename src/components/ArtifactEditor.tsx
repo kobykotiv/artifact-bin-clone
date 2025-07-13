@@ -38,6 +38,7 @@ import { CommentSystem } from './CommentSystem';
 import { CollaborationWorkspace } from './CollaborationWorkspace';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PromptGenerator } from './PromptGenerator';
+import { connectToCollaborationRoom, sendCollaborationUpdate } from '@/lib/collaboration';
 
 interface ArtifactEditorProps {
   artifact: ArtifactData;
@@ -80,6 +81,22 @@ export function ArtifactEditor({ artifact, onSave, onCancel }: ArtifactEditorPro
   const [autoFormat, setAutoFormat] = useState(true);
 
   const editorRef = useRef<any>(null);
+  const [collabSocket, setCollabSocket] = useState<WebSocket | null>(null);
+
+  // Real-time collaboration: connect on mount
+  useEffect(() => {
+    const socket = connectToCollaborationRoom(artifact.id, (data) => {
+      // Handle incoming collaboration messages
+      if (data.type === 'presence') {
+        setActiveUsers(data.users);
+      } else if (data.type === 'content') {
+        setRealTimeChanges((prev) => [...prev, data]);
+        // Optionally auto-apply changes to editor here
+      }
+    });
+    setCollabSocket(socket);
+    return () => { socket.close(); };
+  }, [artifact.id]);
 
   const handleSave = () => {
     onSave({
