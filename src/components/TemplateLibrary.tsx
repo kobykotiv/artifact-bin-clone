@@ -33,7 +33,7 @@ import {
   Download,
   Plus,
   Filter,
-  Sort
+  ArrowUpDown
 } from 'lucide-react';
 import { 
   Select,
@@ -277,8 +277,8 @@ export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateL
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-        <DialogHeader className="border-b pb-4">
+      <DialogContent className="min-w-4xl w-full h-auto max-h-[95vh] p-0 overflow-visible">
+        <DialogHeader className="border-b pb-4 px-6 pt-6">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-2xl">Template Library</DialogTitle>
@@ -298,7 +298,7 @@ export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateL
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto px-6 pb-6" style={{minHeight: 0}}>
           <Tabs defaultValue="browse" className="h-full flex flex-col">
             <TabsList className="mb-4">
               <TabsTrigger value="browse">Browse Templates</TabsTrigger>
@@ -306,7 +306,7 @@ export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateL
               <TabsTrigger value="my-templates">My Templates</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="browse" className="flex-1 flex flex-col overflow-hidden">
+            <TabsContent value="browse" className="flex-1 flex flex-col overflow-auto">
               {/* Search and Filters */}
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <div className="relative flex-1">
@@ -334,7 +334,7 @@ export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateL
                   
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-[120px]">
-                      <Sort className="h-4 w-4 mr-2" />
+                      <ArrowUpDown className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Sort" />
                     </SelectTrigger>
                     <SelectContent>
@@ -348,7 +348,7 @@ export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateL
               </div>
 
               {/* Templates Grid */}
-              <ScrollArea className="flex-1">
+              <div className="flex-1 overflow-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
                   {filteredTemplates.map(template => (
                     <Card key={template.id} className="cursor-pointer hover:shadow-md transition-all border-2 hover:border-blue-200 group">
@@ -450,7 +450,7 @@ export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateL
                     <p className="text-muted-foreground">Try adjusting your search or filters</p>
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             <TabsContent value="featured" className="flex-1 overflow-hidden">

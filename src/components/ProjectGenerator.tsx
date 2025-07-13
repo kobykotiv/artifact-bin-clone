@@ -406,4 +406,5 @@ const ProjectGenerator: React.FC<ProjectGeneratorProps> = ({ artifact, onSave, o
     );
 };
 
-export default ProjectGenerator;
+export { ProjectGenerator };
+// export default ProjectGenerator;

@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from '@/components/UserAvatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -141,7 +141,7 @@ export function DashboardLayout() {
   // State for showing specialized pages/modals
   const [showStatistics, setShowStatistics] = useState(false);
   const [showStartupOrgGenerator, setShowStartupOrgGenerator] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'my-artifacts' | 'details' | 'create' | 'settings'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'my-artifacts' | 'details' | 'create' | 'settings' | 'dashboard'>('gallery');
   const [selectedArtifactUuid, setSelectedArtifactUuid] = useState<string | null>(null);
 
   const [showCustomTemplateManager, setShowCustomTemplateManager] = useState(false);
@@ -683,6 +683,115 @@ export function DashboardLayout() {
     if (activeTab === 'details' && selectedArtifactUuid) {
       return <ArtifactDetailsPage uuid={selectedArtifactUuid} />;
     }
+    if (activeTab === 'dashboard') {
+      return (
+        <div className="dashboard-tab space-y-6 p-4">
+          {/* Welcome Section */}
+          <div className="welcome-section">
+            <h1 className="text-2xl font-bold">Welcome, {authState.user?.email || 'User'}!</h1>
+            <div className="quick-start-buttons mt-4 flex space-x-4">
+              <Button variant="default" onClick={() => setActiveTab('create')}>Upload Artifact</Button>
+              <Button variant="outline" onClick={() => setActiveTab('my-artifacts')}>Create New Bin</Button>
+            </div>
+          </div>
+
+          {/* Key Stats Section */}
+          <div className="key-stats grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card">
+              <h3 className="text-lg font-semibold">Total Artifacts</h3>
+              <p className="text-xl">{artifacts.length}</p>
+            </div>
+            <div className="card">
+              <h3 className="text-lg font-semibold">Total Bins</h3>
+              <p className="text-xl">{folders.length}</p>
+            </div>
+            <div className="card">
+              <h3 className="text-lg font-semibold">Storage Usage</h3>
+              <p className="text-xl">{calculateStorageUsage()} MB</p>
+            </div>
+          </div>
+
+          {/* Recent Activity Feed */}
+          <div className="recent-activity">
+            <h3 className="text-lg font-semibold">Recent Activity</h3>
+            <ul className="list-disc pl-5">
+              {artifacts.slice(0, 5).map((artifact) => (
+                <li key={artifact.id}>{artifact.title} - {new Date(artifact.createdAt).toLocaleDateString()}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Pinned Bins Section */}
+          <div className="pinned-bins">
+            <h3 className="text-lg font-semibold">Pinned Bins</h3>
+            <ul className="list-disc pl-5">
+              {folders.filter(folder => folder.isPinned).map((folder) => (
+                <li key={folder.id}>{folder.name} - Last Updated: {new Date(folder.updatedAt).toLocaleDateString()}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Expiring Artifacts Section */}
+          <div className="expiring-artifacts">
+            <h3 className="text-lg font-semibold">Expiring Artifacts</h3>
+            <ul className="list-disc pl-5">
+              {artifacts.filter(artifact => {
+                const expiryDate = new Date(artifact.metadata?.expiryDate);
+                return expiryDate && expiryDate > new Date() && expiryDate < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+              }).map(artifact => (
+                <li key={artifact.id}>{artifact.title} - Expires: {new Date(artifact.metadata?.expiryDate).toLocaleDateString()}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Recent Uploads Section */}
+          <div className="recent-uploads">
+            <h3 className="text-lg font-semibold">Recent Uploads</h3>
+            <ul className="list-disc pl-5">
+              {artifacts.slice(0, 5).map(upload => (
+                <li key={upload.id}>{upload.title} - {upload.fileType}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Shared with Me Section */}
+          <div className="shared-with-me">
+            <h3 className="text-lg font-semibold">Shared with Me</h3>
+            <ul className="list-disc pl-5">
+              {artifacts.filter(artifact => artifact.sharedWith?.includes(authState.user?.id)).map(shared => (
+                <li key={shared.id}>{shared.title} - Owner: {shared.userId}</li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Integrations & Automation Summary */}
+          <div className="integrations-summary">
+            <h3 className="text-lg font-semibold">Integrations & Automation</h3>
+            <p>Last CI/CD Upload: {new Date().toLocaleDateString()}</p>
+            <p>Webhook Activity: Active</p>
+          </div>
+
+          {/* Developer-Centric Widgets */}
+          <div className="developer-widgets">
+            <h3 className="text-lg font-semibold">Developer Tools</h3>
+            <p>CLI/API Status: Connected</p>
+            <p>Upload Logs: No Errors</p>
+          </div>
+
+          {/* Social Feed Section */}
+          <div className="social-feed">
+            <h3 className="text-lg font-semibold">Social Feed</h3>
+            <ul className="list-disc pl-5">
+              {artifacts.slice(0, 5).map(entry => (
+                <li key={entry.id}>
+                  <strong>{entry.title}</strong> - {new Date(entry.createdAt).toLocaleString()}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      );
+    }
     return null;
   };
 
@@ -698,6 +807,41 @@ export function DashboardLayout() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [activeTab]);
+
+  // Welcome Section
+  const WelcomeSection = () => (
+    <div className="welcome-section">
+      <h1 className="text-2xl font-bold">Welcome, {authState.user?.email || 'User'}!</h1>
+      <div className="quick-start-buttons mt-4">
+        <Button variant="default" onClick={() => setActiveTab('create')}>Create Artifact</Button>
+        <Button variant="outline" onClick={() => setActiveTab('gallery')}>View Gallery</Button>
+      </div>
+    </div>
+  );
+
+  // Key Stats Widgets
+  const KeyStatsWidgets = () => (
+    <div className="key-stats-widgets mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="card">
+        <h2 className="text-lg font-semibold">Total Artifacts</h2>
+        <p className="text-xl">{artifacts.length}</p>
+      </div>
+      <div className="card">
+        <h2 className="text-lg font-semibold">Total Bins</h2>
+        <p className="text-xl">{folders.length}</p>
+      </div>
+      <div className="card">
+        <h2 className="text-lg font-semibold">Storage Usage</h2>
+        <p className="text-xl">{calculateStorageUsage()} MB</p>
+      </div>
+    </div>
+  );
+
+  // Placeholder for calculateStorageUsage function
+  const calculateStorageUsage = () => {
+    // Placeholder logic; replace with actual calculation
+    return 0;
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden w-full min-w-0 bg-gray-50">
