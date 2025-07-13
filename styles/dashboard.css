@@ -72,74 +72,116 @@
 }
 
 /* Mobile-optimized Dashboard Styles */
-@media (max-width: 768px) {
-  .dashboard-header {
-    padding: 0.5rem 0.75rem;
-  }
-  
-  .dashboard-nav-button {
-    font-size: 0.875rem;
-    padding: 0.5rem 0.75rem;
-  }
-  
-  .dashboard-mobile-menu {
-    animation: slideDown 0.2s ease-out;
-  }
-  
+
+/* Tab Content */
+.dashboard-tab-content {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Search Bar */
+.dashboard-search-bar {
+  transition: all 0.2s ease;
+}
+
+.dashboard-search-bar:focus {
+  outline: 2px solid rgb(59 130 246);
+  border-color: transparent;
+}
+
+/* Card Grid - Responsive */
+.dashboard-card-grid {
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
   .dashboard-card-grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-  
-  .dashboard-artifact-card {
-    border-radius: 0.5rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  
-  .dashboard-artifact-card:active {
-    transform: scale(0.98);
-  }
-  
-  .dashboard-search-bar {
-    font-size: 16px; /* Prevents zoom on iOS */
+    gap: 1rem;
   }
 }
 
+/* Artifact Cards */
+.dashboard-artifact-card {
+  transition: all 0.2s ease;
+  border-radius: 0.5rem;
+  background: white;
+}
+
+.dashboard-artifact-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Create Grid */
+.dashboard-create-grid {
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .dashboard-create-grid {
+    gap: 1rem;
+  }
+}
+
+/* Buttons */
+.dashboard-button {
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.dashboard-button:hover {
+  transform: translateY(-1px);
+}
+
+/* Text Truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mobile Responsive Utilities */
 @media (max-width: 640px) {
   .dashboard-tab-content {
     padding: 0.5rem;
   }
   
-  .dashboard-create-grid {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .dashboard-mobile-nav {
+  .dashboard-artifact-card .p-3 {
     padding: 0.75rem;
   }
-}
-
-/* Animations */
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Touch-friendly interactive elements */
-@media (hover: none) and (pointer: coarse) {
-  .dashboard-interactive {
-    min-height: 44px;
-    min-width: 44px;
-  }
   
-  .dashboard-button {
-    padding: 0.75rem 1rem;
+  .dashboard-card-grid {
+    grid-template-columns: 1fr;
   }
 }
+
+@media (min-width: 640px) and (max-width: 768px) {
+  .dashboard-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .dashboard-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-card-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ...existing code... */

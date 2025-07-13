@@ -138,7 +138,7 @@ export function SettingsPage({ isOpen, onClose }: SettingsPageProps) {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex">
             {/* Sidebar Navigation */}
             <div className="w-64 border-r pr-4">
-              <TabsList orientation="vertical" className="h-auto flex-col items-stretch bg-transparent p-0">
+              <TabsList orientation="horizontal" className="h-auto flex-col items-stretch bg-transparent p-0">
                 {settingsSections.map(section => {
                   const Icon = section.icon;
                   return (

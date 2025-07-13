@@ -749,6 +749,14 @@ export function DashboardLayout() {
         />
       )}
 
+      {/* Settings Page Modal */}
+      {showSettingsPage && (
+        <SettingsPage 
+          isOpen={showSettingsPage}
+          onClose={() => setShowSettingsPage(false)}
+        />
+      )}
+
       {/* Modals remain the same */}
       {/* Prompt Generator Modal */}
       <Dialog open={showPromptGeneratorModal} onOpenChange={setShowPromptGeneratorModal}>
