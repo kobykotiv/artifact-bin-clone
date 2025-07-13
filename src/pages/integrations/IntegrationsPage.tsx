@@ -185,26 +185,26 @@ export function IntegrationsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Integrations</h1>
-          <p className="text-muted-foreground">Connect external services and automate workflows</p>
+          <h1 className="text-2xl lg:text-3xl font-bold">Integrations</h1>
+          <p className="text-sm lg:text-base text-muted-foreground">Connect external services and automate workflows</p>
         </div>
-        <Button onClick={() => setShowAddCustom(true)}>
+        <Button onClick={() => setShowAddCustom(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Custom Integration
         </Button>
       </div>
 
       <Tabs defaultValue="browse">
-        <TabsList>
-          <TabsTrigger value="browse">Browse Integrations</TabsTrigger>
-          <TabsTrigger value="connected">Connected ({integrations.filter(i => i.status === 'connected').length})</TabsTrigger>
-          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="browse" className="text-xs sm:text-sm">Browse</TabsTrigger>
+          <TabsTrigger value="connected" className="text-xs sm:text-sm">Connected ({integrations.filter(i => i.status === 'connected').length})</TabsTrigger>
+          <TabsTrigger value="webhooks" className="text-xs sm:text-sm">Webhooks</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="browse" className="space-y-6">
+        <TabsContent value="browse" className="space-y-4 lg:space-y-6">
           {/* Category Filter */}
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
@@ -213,6 +213,7 @@ export function IntegrationsPage() {
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedCategory(category.id)}
+                className="text-xs sm:text-sm"
               >
                 {category.name}
               </Button>
@@ -220,27 +221,27 @@ export function IntegrationsPage() {
           </div>
 
           {/* Integrations Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
             {filteredIntegrations.map((integration) => {
               const IconComponent = integration.icon;
               const StatusIcon = getStatusIcon(integration.status);
               
               return (
                 <Card key={integration.id} className="relative">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <IconComponent className="h-8 w-8" />
-                        <div>
-                          <CardTitle className="text-lg">{integration.name}</CardTitle>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <IconComponent className="h-6 w-6 lg:h-8 lg:w-8 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-base lg:text-lg truncate">{integration.name}</CardTitle>
                           <div className="flex items-center space-x-2 mt-1">
                             {getStatusBadge(integration.status)}
                           </div>
                         </div>
                       </div>
-                      <StatusIcon className={`h-5 w-5 ${getStatusColor(integration.status)}`} />
+                      <StatusIcon className={`h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0 ${getStatusColor(integration.status)}`} />
                     </div>
-                    <CardDescription>{integration.description}</CardDescription>
+                    <CardDescription className="text-xs lg:text-sm">{integration.description}</CardDescription>
                   </CardHeader>
                   
                   <CardContent className="space-y-4">
@@ -309,8 +310,8 @@ export function IntegrationsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="connected" className="space-y-6">
-          <div className="grid grid-cols-1 gap-4">
+        <TabsContent value="connected" className="space-y-4 lg:space-y-6">
+          <div className="grid grid-cols-1 gap-3 lg:gap-4">
             {integrations
               .filter(integration => integration.status === 'connected')
               .map((integration) => {
@@ -318,13 +319,13 @@ export function IntegrationsPage() {
                 
                 return (
                   <Card key={integration.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <IconComponent className="h-8 w-8" />
-                          <div>
-                            <h3 className="font-medium">{integration.name}</h3>
-                            <p className="text-sm text-muted-foreground">{integration.description}</p>
+                    <CardContent className="p-4 lg:p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3 lg:space-x-4 min-w-0 flex-1">
+                          <IconComponent className="h-6 w-6 lg:h-8 lg:w-8 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-sm lg:text-base truncate">{integration.name}</h3>
+                            <p className="text-xs lg:text-sm text-muted-foreground">{integration.description}</p>
                             {integration.lastSync && (
                               <p className="text-xs text-muted-foreground mt-1">
                                 Last synced: {new Date(integration.lastSync).toLocaleString()}
@@ -333,23 +334,28 @@ export function IntegrationsPage() {
                           </div>
                         </div>
                         
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
+                        <div className="flex flex-row lg:flex-row space-x-2 w-full lg:w-auto">
+                          <Button variant="outline" size="sm" className="flex-1 lg:flex-none">
                             <Settings className="h-4 w-4" />
+                            <span className="ml-2 lg:hidden">Settings</span>
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleSync(integration.id)}
+                            className="flex-1 lg:flex-none"
                           >
                             <RefreshCw className="h-4 w-4" />
+                            <span className="ml-2 lg:hidden">Sync</span>
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleDisconnect(integration.id)}
+                            className="flex-1 lg:flex-none"
                           >
-                            Disconnect
+                            <span className="lg:hidden">Disconnect</span>
+                            <span className="hidden lg:inline">Disconnect</span>
                           </Button>
                         </div>
                       </div>
@@ -374,24 +380,25 @@ export function IntegrationsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="webhooks" className="space-y-6">
+        <TabsContent value="webhooks" className="space-y-4 lg:space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Webhooks</CardTitle>
-              <CardDescription>Configure webhooks to receive real-time notifications</CardDescription>
+              <CardTitle className="text-lg lg:text-xl">Webhooks</CardTitle>
+              <CardDescription className="text-sm">Configure webhooks to receive real-time notifications</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="webhook-url">Webhook URL</Label>
+                  <Label htmlFor="webhook-url" className="text-sm lg:text-base">Webhook URL</Label>
                   <Input
                     id="webhook-url"
                     placeholder="https://your-app.com/webhooks/artifact-bin"
+                    className="text-sm"
                   />
                 </div>
                 
                 <div>
-                  <Label>Events</Label>
+                  <Label className="text-sm lg:text-base">Events</Label>
                   <div className="space-y-2 mt-2">
                     {[
                       'artifact.created',
@@ -402,13 +409,13 @@ export function IntegrationsPage() {
                     ].map((event) => (
                       <div key={event} className="flex items-center space-x-2">
                         <Switch id={event} />
-                        <Label htmlFor={event} className="text-sm">{event}</Label>
+                        <Label htmlFor={event} className="text-xs lg:text-sm">{event}</Label>
                       </div>
                     ))}
                   </div>
                 </div>
                 
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Webhook
                 </Button>

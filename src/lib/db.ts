@@ -73,4 +73,27 @@ export const getArtifactStats = async (): Promise<{ count: number; size: number 
   return { count, size };
 };
 
+// User-related functions for compatibility
+export const createUser = async (userData: any): Promise<any> => {
+  // This is a placeholder implementation
+  // In a real app, this would interact with your user database
+  return { id: crypto.randomUUID(), ...userData };
+};
+
+export const getUser = async (id: string): Promise<any | null> => {
+  // This is a placeholder implementation
+  return null;
+};
+
+export const getUserByEmail = async (email: string): Promise<any | null> => {
+  // This is a placeholder implementation
+  return null;
+};
+
+export interface IUser {
+  id: string;
+  email: string;
+  // Add other user fields as needed
+}
+
 export type { UserData } from './models/User';

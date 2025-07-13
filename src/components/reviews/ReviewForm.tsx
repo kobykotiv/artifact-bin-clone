@@ -20,10 +20,11 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ artifactId, onReviewSubmitted }
     }
 
     try {
-      const newReview: Omit<ReviewData, 'id' | 'createdAt' | 'updatedAt' | 'userId'> = {
+      const newReview: Omit<ReviewData, 'id' | 'createdAt' | 'updatedAt'> = {
         artifactId,
         rating,
         comment,
+        userId: 'current-user-id', // TODO: Get from auth context
       };
       await dbService.createReview(newReview);
       onReviewSubmitted();
@@ -78,4 +79,5 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ artifactId, onReviewSubmitted }
   );
 };
 
+export { ReviewForm };
 export default ReviewForm;
