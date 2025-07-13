@@ -354,6 +354,8 @@ class DBService {
     return (this.forks.get(artifactId) || []).filter(f => f.isPublic);
   }
 
+  // --- COMMUNITY API ---
+
   // Persistence
   private async persist() {
     try {

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "template-1",
+    "name": "Personal Portfolio",
+    "type": "website",
+    "language": "html",
+    "category": "Web",
+    "theme": "Minimalist",
+    "purpose": "Showcase personal projects and skills",
+    "genre": "Portfolio"
+  },
+  {
+    "id": "template-2",
+    "name": "Technical Blog",
+    "type": "blog",
+    "language": "markdown",
+    "category": "Content",
+    "theme": "Dark",
+    "purpose": "Write and publish technical articles",
+    "genre": "Blog"
+  },
+  {
+    "id": "template-3",
+    "name": "E-commerce Product Card",
+    "type": "component",
+    "language": "react",
+    "category": "UI",
+    "theme": "Modern",
+    "purpose": "Display product details for online stores",
+    "genre": "E-commerce"
+  },
+  {
+    "id": "template-4",
+    "name": "Resume/CV",
+    "type": "document",
+    "language": "markdown",
+    "category": "Professional",
+    "theme": "Classic",
+    "purpose": "Create a professional resume or CV",
+    "genre": "Resume"
+  },
+  {
+    "id": "template-5",
+    "name": "Landing Page",
+    "type": "website",
+    "language": "html",
+    "category": "Marketing",
+    "theme": "Vibrant",
+    "purpose": "Promote a product or service",
+    "genre": "Landing Page"
+  },
+  {
+    "id": "template-6",
+    "name": "API Documentation",
+    "type": "document",
+    "language": "markdown",
+    "category": "Documentation",
+    "theme": "Clean",
+    "purpose": "Document APIs for developers",
+    "genre": "API"
+  },
+  {
+    "id": "template-7",
+    "name": "Recipe Card",
+    "type": "component",
+    "language": "react",
+    "category": "Lifestyle",
+    "theme": "Cozy",
+    "purpose": "Share cooking recipes",
+    "genre": "Recipe"
+  },
+  {
+    "id": "template-8",
+    "name": "Startup Pitch Deck",
+    "type": "presentation",
+    "language": "markdown",
+    "category": "Business",
+    "theme": "Professional",
+    "purpose": "Present a startup idea to investors",
+    "genre": "Pitch Deck"
+  },
+  {
+    "id": "template-9",
+    "name": "Event Invitation",
+    "type": "email",
+    "language": "html",
+    "category": "Communication",
+    "theme": "Festive",
+    "purpose": "Invite people to an event",
+    "genre": "Invitation"
+  },
+  {
+    "id": "template-10",
+    "name": "Micro SaaS Dashboard",
+    "type": "dashboard",
+    "language": "react",
+    "category": "SaaS",
+    "theme": "Analytics",
+    "purpose": "Monitor SaaS metrics and KPIs",
+    "genre": "Dashboard"
+  }
+]

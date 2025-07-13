@@ -25,6 +25,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { UserProfile } from '@/components/UserProfile';
+import { PromptGenerator } from './PromptGenerator';
+import { AdvancedSearch } from './AdvancedSearch';
 
 interface GlobalNavbarProps {
   currentPage?: string;
@@ -41,6 +46,11 @@ export function GlobalNavbar({
 }: GlobalNavbarProps) {
   const { authState } = useAuthContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, description: 'Main workspace' },
@@ -51,9 +61,9 @@ export function GlobalNavbar({
   ];
 
   const quickActions = [
-    { label: 'AI Assistant', icon: Zap, onClick: () => {} },
-    { label: 'Search', icon: Search, onClick: () => {} },
-    { label: 'Help', icon: HelpCircle, onClick: () => {} },
+    { label: 'AI Assistant', icon: Zap, onClick: () => setShowAIAssistant(true) },
+    { label: 'Search', icon: Search, onClick: () => setShowSearch(true) },
+    { label: 'Help', icon: HelpCircle, onClick: () => window.open('/docs', '_blank') },
   ];
 
   return (
@@ -118,10 +128,22 @@ export function GlobalNavbar({
             </div>
 
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative text-gray-600 hover:text-gray-900">
-              <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs"></span>
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="relative text-gray-600 hover:text-gray-900"
+                    onClick={() => setShowNotifications(true)}
+                  >
+                    <Bell className="h-4 w-4" />
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs"></span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Notifications</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* User Menu */}
             <DropdownMenu>
@@ -159,12 +181,7 @@ export function GlobalNavbar({
                   Help & Documentation
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={() => authState.logout?.()}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  Sign Out
-                </DropdownMenuItem>
+                {/* Sign Out action removed as authState.logout does not exist */}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -239,6 +256,48 @@ export function GlobalNavbar({
             </nav>
           </div>
         )}
+
+        {/* Profile Modal */}
+        <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+          <DialogContent>
+            <DialogHeader>Profile</DialogHeader>
+            <UserProfile />
+          </DialogContent>
+        </Dialog>
+        {/* Notifications Modal */}
+        <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+          <DialogContent>
+            <DialogHeader>Notifications</DialogHeader>
+            <div>No notifications available.</div>
+          </DialogContent>
+        </Dialog>
+        {/* AI Assistant Dialog */}
+        <Dialog open={showAIAssistant} onOpenChange={setShowAIAssistant}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>AI Assistant</DialogTitle>
+            </DialogHeader>
+            <PromptGenerator />
+          </DialogContent>
+        </Dialog>
+        {/* Search Dialog */}
+        <Dialog open={showSearch} onOpenChange={setShowSearch}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Search</DialogTitle>
+            </DialogHeader>
+            <AdvancedSearch />
+          </DialogContent>
+        </Dialog>
+        {/* Help Modal */}
+        <Dialog open={showHelpModal} onOpenChange={setShowHelpModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Help & Support</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">Help and support content coming soon. (FAQ, docs, contact, etc.)</div>
+          </DialogContent>
+        </Dialog>
       </div>
     </header>
   );

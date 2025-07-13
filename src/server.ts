@@ -529,6 +529,39 @@ serve({
       ]);
     }
 
+    // --- Hosting Quota Tracking ---
+    const hostingUsage: Record<string, { used: number; resetDate: Date }> = {};
+
+    function resetQuotaIfNeeded(userId: string) {
+      const usage = hostingUsage[userId];
+      const now = new Date();
+      if (!usage || now > usage.resetDate) {
+        hostingUsage[userId] = { used: 0, resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
+      }
+    }
+
+    // --- Hosting Quota Endpoint ---
+    if (url.pathname === "/api/hosting/quota" && req.method === "GET") {
+      if (auth.status !== "user") return new Response("Unauthorized", { status: 401 });
+      resetQuotaIfNeeded(auth.user.id);
+      const usage = hostingUsage[auth.user.id];
+      return Response.json({ used: usage.used, quota: 1024 }); // Quota in MB
+    }
+
+    if (url.pathname === "/api/hosting/upload" && req.method === "POST") {
+      if (auth.status !== "user") return new Response("Unauthorized", { status: 401 });
+      resetQuotaIfNeeded(auth.user.id);
+      const usage = hostingUsage[auth.user.id];
+
+      const { size } = await req.json(); // Assume size is provided in MB
+      if (usage.used + size > 1024) {
+        return new Response("Quota exceeded", { status: 403 });
+      }
+
+      usage.used += size;
+      return new Response("Upload successful", { status: 200 });
+    }
+
     return new Response("Not found", { status: 404 });
   },
   websocket: {

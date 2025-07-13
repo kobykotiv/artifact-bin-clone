@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/select';
 import { CustomTemplateManager } from './CustomTemplateManager';
 import { TemplateBrowserModal } from './TemplateBrowserModal';
+import artifactTemplates from './templates/artifact-templates.json';
 
 interface Template {
   id: string;
@@ -239,16 +240,33 @@ const templateCategories = [
   }
 ];
 
+// Merge external artifact templates into the template library
+const externalTemplates = (artifactTemplates as any[]).map(t => ({
+  ...t,
+  icon: Code, // Default icon for external templates; customize as needed
+  description: t.purpose || t.genre || t.name,
+  categoryName: t.category || 'Other',
+  downloads: 0,
+  rating: 0,
+  isPopular: false,
+  isNew: true,
+  difficulty: 'beginner',
+  tags: [t.theme, t.genre, t.purpose].filter(Boolean)
+}));
+
+const allTemplates = [
+  ...templateCategories.flatMap(cat => cat.templates.map(template => ({ ...template, categoryName: cat.name }))),
+  ...externalTemplates
+];
+
 export function TemplateLibrary({ isOpen, onClose, onSelectTemplate }: TemplateLibraryProps) {
+  if (!isOpen) return null; // Ensure this is before any hooks
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [showCustomManager, setShowCustomManager] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
-
-  const allTemplates = templateCategories.flatMap(cat => 
-    cat.templates.map(template => ({ ...template, categoryName: cat.name }))
-  );
 
   const filteredTemplates = allTemplates
     .filter(template => {

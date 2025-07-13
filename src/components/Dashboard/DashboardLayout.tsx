@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { dbService } from '@/lib/services/db';
+import { communityService } from '@/lib/services/community';
 import { useDashboard } from './DashboardContext';
 import { Button } from '@/components/ui/button';
-import '../../../styles/dashboard.css';
+import '@/styles/dashboard.css';
 import { 
   Plus, 
   ArrowUpDown, 
@@ -36,7 +37,9 @@ import {
   Code,
   ListTodo,
   Menu,
-  X
+  X,
+  Activity,
+  Users,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -77,6 +80,12 @@ import { PseudocodeGenerator } from '@/lib/templates/PseudocodeGenerator'; // As
 import { useAuthContext } from '@/lib/context/AuthContext';
 import type { TemplateVariables } from '@/lib/promptTemplates';
 import type { ArtifactData } from '@/lib/services/db';
+import { Badge } from '@/components/ui/badge';
+import { CardDescription } from '@/components/ui/card';
+import { CommunityFeed } from './CommunityFeed';
+import { CommunityPostComposer } from './CommunityPostComposer';
+import { CommunityExternalFeed } from './CommunityExternalFeed';
+import { MyArtifactsSection } from './MyArtifactsSection';
 
 // --- Dashboard Pseudocode Scaffold ---
 // Authentication State:
@@ -141,7 +150,7 @@ export function DashboardLayout() {
   // State for showing specialized pages/modals
   const [showStatistics, setShowStatistics] = useState(false);
   const [showStartupOrgGenerator, setShowStartupOrgGenerator] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'my-artifacts' | 'details' | 'create' | 'settings' | 'dashboard'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'my-artifacts' | 'details' | 'create' | 'settings' | 'dashboard' | 'community'>('gallery');
   const [selectedArtifactUuid, setSelectedArtifactUuid] = useState<string | null>(null);
 
   const [showCustomTemplateManager, setShowCustomTemplateManager] = useState(false);
@@ -162,6 +171,12 @@ export function DashboardLayout() {
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSettingsPage, setShowSettingsPage] = useState(false);
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
+
+  // Community tab state
+  const [communityPosts, setCommunityPosts] = useState([]);
+  const [communityStats, setCommunityStats] = useState(null);
+  const [collaborators, setCollaborators] = useState([]);
+  const [loadingCommunity, setLoadingCommunity] = useState(true);
 
   // Filter artifacts
   const filteredArtifacts = artifacts.filter(artifact => {
@@ -186,8 +201,7 @@ export function DashboardLayout() {
         artifact={currentArtifact}
         onSave={saveArtifact}
         onEdit={() => setIsEditing(true)}
-        onCancel={() => setIsEditing(false)}
-        onDelete={() => deleteArtifact(currentArtifact.id)}
+        // onDelete prop removed to match expected props
         onFork={() => forkArtifact(currentArtifact)}
       />
     );
@@ -349,72 +363,14 @@ export function DashboardLayout() {
       // Show artifacts user can edit or that are shared with them
       const editableArtifacts = artifacts.filter(a => a.userId === authState.user?.id || a.sharedWith?.includes(authState.user?.id));
       return (
-        <div className="p-2 sm:p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-            <h2 className="text-lg sm:text-xl font-bold">My Artifacts</h2>
-            <Button size="sm" onClick={() => setActiveTab('create')} className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              Create New
-            </Button>
-          </div>
-          
-          {/* Search and Filter Bar - Mobile Optimized */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search artifacts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="dashboard-search-bar pl-10 w-full"
-              />
-            </div>
-            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="Language" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Languages</SelectItem>
-                <SelectItem value="javascript">JavaScript</SelectItem>
-                <SelectItem value="typescript">TypeScript</SelectItem>
-                <SelectItem value="python">Python</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Artifacts Grid - Responsive */}
-          <div className="dashboard-card-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {editableArtifacts.map(a => (
-              <Card key={a.id} className="dashboard-artifact-card cursor-pointer hover:shadow-md transition-shadow border-2 border-gray-200">
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-sm truncate flex-1 mr-2">{a.title}</h3>
-                    <span className="text-xs bg-gray-100 px-2 py-1 rounded shrink-0">{a.type}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-3 line-clamp-2">{a.language}</p>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="dashboard-button w-full text-xs"
-                    onClick={() => { setSelectedArtifactUuid(a.id); setActiveTab('details'); }}
-                  >
-                    View Details
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          
-          {editableArtifacts.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-              <p>No artifacts found</p>
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => setActiveTab('create')}>
-                Create your first artifact
-              </Button>
-            </div>
-          )}
-        </div>
+        <MyArtifactsSection
+          artifacts={editableArtifacts}
+          folders={folders}
+          selectedFolderId={selectedFolderId}
+          setSelectedFolderId={setSelectedFolderId}
+          onSelectArtifact={id => { setSelectedArtifactUuid(id); setActiveTab('details'); }}
+          onCreateArtifact={() => setActiveTab('create')}
+        />
       );
     }
     if (activeTab === 'create') {
@@ -782,12 +738,152 @@ export function DashboardLayout() {
           <div className="social-feed">
             <h3 className="text-lg font-semibold">Social Feed</h3>
             <ul className="list-disc pl-5">
-              {artifacts.slice(0, 5).map(entry => (
-                <li key={entry.id}>
-                  <strong>{entry.title}</strong> - {new Date(entry.createdAt).toLocaleString()}
-                </li>
-              ))}
+              <li><a href="https://dev.to" target="_blank" rel="noopener noreferrer">Explore projects on Dev.to</a></li>
+              <li><a href="https://github.com" target="_blank" rel="noopener noreferrer">Discover repositories on GitHub</a></li>
+              <li><a href="https://hashnode.com" target="_blank" rel="noopener noreferrer">Connect with developers on Hashnode</a></li>
+              <li><a href="https://www.reddit.com/r/programming/" target="_blank" rel="noopener noreferrer">Join discussions on r/programming</a></li>
+              <li><a href="https://stackoverflow.com" target="_blank" rel="noopener noreferrer">Share knowledge on Stack Overflow</a></li>
             </ul>
+          </div>
+
+          {/* Monthly Quota Section */}
+          <div className="monthly-quota">
+            <h3 className="text-lg font-semibold">Monthly Hosting Quota</h3>
+            <p className="text-sm">All users receive <strong>1GB</strong> of free web hosting bandwidth for their hosted SPA widget applications.</p>
+          </div>
+        </div>
+      );
+    }
+    if (activeTab === 'community') {
+      if (loadingCommunity) {
+        return <div className="p-8 text-center text-gray-500">Loading community...</div>;
+      }
+      return (
+        <div className="dashboard-tab space-y-6 p-4">
+          {/* Hero Banner / Introduction */}
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-1">Stay connected to the developer world</h2>
+              <p className="text-gray-600 text-sm">Trending discussions, devlogs, CI/CD tips, and more from the ecosystem.</p>
+            </div>
+            <div className="flex gap-2 mt-2 md:mt-0">
+              <a href="https://dev.to/t/devops" target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition">Dev.to</a>
+              <a href="https://bsky.app" target="_blank" rel="noopener noreferrer" className="bg-sky-500 text-white px-4 py-2 rounded font-medium hover:bg-sky-600 transition">Bluesky</a>
+            </div>
+          </div>
+          {/* External Feed Section */}
+          <CommunityExternalFeed />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: Activity Feed & Calls to Action */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Community Post Composer */}
+              <Card>
+                <CardContent>
+                  <CommunityPostComposer onPost={() => window.location.reload()} />
+                </CardContent>
+              </Card>
+              {/* Community Feed */}
+              <CommunityFeed />
+              {/* Calls to Action */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 flex flex-col items-center text-center">
+                    <Rocket className="h-8 w-8 text-blue-600 mb-2" />
+                    <h3 className="font-medium text-base mb-1">Start a New Discussion</h3>
+                    <p className="text-xs text-gray-500 mb-2">Share ideas, ask questions, or propose collaborations.</p>
+                    <Button size="sm" variant="default">Start Now</Button>
+                  </CardContent>
+                </Card>
+                <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 flex flex-col items-center text-center">
+                    <Users className="h-8 w-8 text-green-600 mb-2" />
+                    <h3 className="font-medium text-base mb-1">Invite Collaborators</h3>
+                    <p className="text-xs text-gray-500 mb-2">Grow your team and work together on artifacts.</p>
+                    <Button size="sm" variant="default">Invite</Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+            {/* Right: Community Stats, Team, Social Links */}
+            <div className="space-y-6">
+              {/* Community Stats */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart4 className="h-5 w-5" />
+                    Community Stats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Members</span>
+                      <span className="font-bold">{communityStats?.members ?? '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Active Today</span>
+                      <span className="font-bold">{communityStats?.activeToday ?? '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Trending Topics</span>
+                      <span className="font-bold">{communityStats?.trendingTopics ?? '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Posts</span>
+                      <span className="font-bold">{communityStats?.posts ?? '-'}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Team/Collaborator Highlights */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Team Highlights
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {collaborators.length === 0 && (
+                      <div className="text-center text-gray-400">No collaborators yet.</div>
+                    )}
+                    {collaborators.map((collaborator) => (
+                      <div key={collaborator.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium">{collaborator.name.split(' ').map(n => n[0]).join('')}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{collaborator.name}</p>
+                            <p className="text-xs text-muted-foreground">{collaborator.lastActive}</p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">{collaborator.activityCount}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Social Links & Discovery */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="h-5 w-5" />
+                    Social & Discovery
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    <li><a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">GitHub</a></li>
+                    <li><a href="https://dev.to" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Dev.to</a></li>
+                    <li><a href="https://stackoverflow.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Stack Overflow</a></li>
+                    <li><a href="https://hashnode.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Hashnode</a></li>
+                    <li><a href="https://www.reddit.com/r/programming/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Reddit</a></li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       );
@@ -801,6 +897,7 @@ export function DashboardLayout() {
     { id: 'my-artifacts', label: 'My Work', icon: FileText, description: 'Your artifacts' },
     { id: 'create', label: 'Create', icon: Plus, description: 'New artifact' },
     { id: 'settings', label: 'Settings', icon: Settings2, description: 'Preferences' },
+    { id: 'community', label: 'Community', icon: Users, description: 'Developer news & discussions' },
   ];
 
   // Close mobile menu when tab changes
@@ -842,6 +939,44 @@ export function DashboardLayout() {
     // Placeholder logic; replace with actual calculation
     return 0;
   };
+
+  // Place these mock data definitions near the top of the DashboardLayout component, after hooks and before renderTabContent
+  const mockCommunityActivity = [
+    { id: '1', type: 'discussion', description: 'Started a discussion on artifact versioning', timestamp: '2 minutes ago', user: 'John Smith', avatar: 'john' },
+    { id: '2', type: 'collaboration', description: 'Collaborated on API Template Collection', timestamp: '10 minutes ago', user: 'Sarah Chen', avatar: 'sarah' },
+    { id: '3', type: 'share', description: 'Shared a new bin "Frontend Components"', timestamp: '1 hour ago', user: 'Mike Johnson', avatar: 'mike' },
+    { id: '4', type: 'invite', description: 'Invited Lisa Wang to join the team', timestamp: '2 hours ago', user: 'Lisa Wang', avatar: 'lisa' },
+    { id: '5', type: 'trending', description: 'Artifact "Database Schema" is trending', timestamp: '3 hours ago', user: 'Alex Rodriguez', avatar: 'alex' },
+  ];
+  const mockCollaborators = [
+    { id: '1', name: 'John Smith', avatar: 'john', activityCount: 12, lastActive: '5 minutes ago' },
+    { id: '2', name: 'Sarah Chen', avatar: 'sarah', activityCount: 8, lastActive: '1 hour ago' },
+    { id: '3', name: 'Mike Johnson', avatar: 'mike', activityCount: 6, lastActive: '2 hours ago' },
+    { id: '4', name: 'Lisa Wang', avatar: 'lisa', activityCount: 5, lastActive: '3 hours ago' },
+  ];
+  const mockCommunityStats = {
+    members: 128,
+    activeToday: 34,
+    trendingTopics: 5,
+    posts: 212,
+  };
+
+  // Community data fetching effect
+  useEffect(() => {
+    if (activeTab === 'community') {
+      setLoadingCommunity(true);
+      Promise.all([
+        communityService.getCommunityPosts(),
+        communityService.getCommunityStats(),
+        communityService.getCollaboratorHighlights()
+      ]).then(([posts, stats, collabs]) => {
+        setCommunityPosts(posts);
+        setCommunityStats(stats);
+        setCollaborators(collabs);
+        setLoadingCommunity(false);
+      });
+    }
+  }, [activeTab]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden w-full min-w-0 bg-gray-50">
